@@ -988,6 +988,7 @@ function renderSettings(){
   const CN = {markets: '📈 증시', economy: '🏛️ 경제·정책', bonds: '💵 채권·금리', commodities: '🛢️ 원자재', crypto: '🪙 코인', tech: '🤖 빅테크·AI', people: '👤 인물·기관', korea: '🇰🇷 국내', world: '🌏 국제'};
   $('#newsCatOpts').innerHTML = Object.entries(CN).map(([k, l]) => `<button class="chip ${S.newsCats.includes(k) ? 'on' : ''}" data-k="${k}">${l}</button>`).join('');
   $('#newsOrigSwitch').classList.toggle('on', !!S.newsOrig);
+  $('#noteSwitch').classList.toggle('on', S.noteOn !== false);
   $('#lifeSwitch').classList.toggle('on', !!S.life);
   document.querySelectorAll('#upColorOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.upColor));
   document.querySelectorAll('#mktOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.mkt));
@@ -1463,6 +1464,7 @@ $('#newsCatOpts').onclick = e => {
   S.newsCats = on ? S.newsCats.filter(x => x !== k) : [...S.newsCats, k]; save(); renderSettings();
 };
 $('#newsOrigRow').onclick = () => { S.newsOrig = !S.newsOrig; save(); renderSettings(); };
+$('#noteRow').onclick = () => { S.noteOn = S.noteOn === false; save(); renderSettings(); };
 $('#lifeRow').onclick = () => { S.life = !S.life; save(); renderSettings(); };
 $('#upColorOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.upColor = b.dataset.v; save(); renderSettings(); upColors(); };
 $('#mktOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.mkt = b.dataset.v; S.mapMkt = S.topMkt = b.dataset.v; save(); renderSettings(); };

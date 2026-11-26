@@ -10,7 +10,7 @@ async function loadData(name, force){
   const c = dcLoad(name);
   if (!force && c && Date.now() - c.at < 8 * 60e3) return c.data;
   try {
-    const r = await fetch(`${DATA}${name}.json?t=${Math.floor(Date.now() / 3e5)}`, {cache: 'no-store'});
+    const r = await fetch(`${DATA}${name}.json?t=${Math.floor(Date.now() / 6e4)}`, {cache: 'no-store'});
     if (!r.ok) throw 0;
     const data = await r.json();
     DC[name] = {at: Date.now(), data};
