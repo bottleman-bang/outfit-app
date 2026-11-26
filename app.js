@@ -10,6 +10,9 @@ const ruleOf = (mode, t) => mode.rules.find(([min]) => t >= min)[1];
 const lvFromArr = a => ({outer:a[0], top:a[1], bottom:a[2], extra:a[3]});
 const maxLv = (mode, k) => mode.levels[k].length - 1;
 
+const MAX_PLACES = 3; // 현재 위치 + 저장 지역 3곳 (휴대폰 화면 폭에 맞춘 개수)
+const locKey = l => l ? `${(+l.lat).toFixed(3)},${(+l.lon).toFixed(3)}` : '';
+
 // 예전 '옷 종류' 기록 → '두께 단계'로 변환
 function itemsToLevels(mode, items, temp){
   const def = lvFromArr(ruleOf(mode, typeof temp === 'number' ? temp : 15));
@@ -40,11 +43,21 @@ function load(){
   s.useDays ||= 0;
   s.pinged ||= {date:'', keys:[]};
   s.fcTab ||= 'hourly';
-  if (s.wx && (!s.wx.main || !s.wx.main.hourly.cloud_cover)) s.wx = null; // 옛 날씨 캐시 형식
+  // 위치: 현재 위치(gps) + 저장 지역(places), 날씨는 지역별로 저장
+  s.places ||= []; s.wxc ||= {};
+  if (!s.locSel){
+    if (s.loc && !s.loc.gps){ const p = {id:'p1', name:s.loc.name, full:s.loc.full || s.loc.name, lat:s.loc.lat, lon:s.loc.lon}; s.places = [p]; s.locSel = 'p1'; }
+    else { if (s.loc) s.gps = {lat:s.loc.lat, lon:s.loc.lon, name:s.loc.name, full:s.loc.name}; s.locSel = 'gps'; }
+    if (s.wx && s.loc) s.wxc[locKey(s.loc)] = s.wx;
+  }
+  for (const k in s.wxc) if (!s.wxc[k].main || !s.wxc[k].main.hourly.cloud_cover) delete s.wxc[k]; // 옛 날씨 캐시 형식
+  if (!s.places.some(p => p.id === s.locSel)) s.locSel = 'gps';
+  s.loc = s.locSel === 'gps' ? (s.gps ? {...s.gps, gps:true} : null) : {...s.places.find(p => p.id === s.locSel), gps:false};
+  s.wx = s.loc ? s.wxc[locKey(s.loc)] || null : null;
   return s;
 }
 let S = load();
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ toast('저장 공간이 부족해요'); } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S, function(k, v){ return this === S && k === 'wx' ? undefined : v; })); } catch(e){ toast('저장 공간이 부족해요'); } }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 
 /* ================== 유틸 ================== */
@@ -114,7 +127,7 @@ function dailyStats(){
 /* ================== 날씨 받아오기 ================== */
 async function fetchWeather(){
   if (!S.loc) return;
-  const {lat, lon} = S.loc;
+  const L = S.loc, {lat, lon} = L;
   const base = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=${DAYS}`;
   const mainUrl = base + `&current=temperature_2m,apparent_temperature,weather_code,is_day` +
     `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day` +
@@ -123,7 +136,10 @@ async function fetchWeather(){
   const get = u => fetch(u).then(r => { if (!r.ok) throw 0; return r.json(); });
   const [m, e] = await Promise.allSettled([get(mainUrl), get(modelUrl)]);
   if (m.status === 'fulfilled'){
-    S.wx = {main: m.value, models: e.status === 'fulfilled' ? e.value : null, at: Date.now()}; WXC = null; save();
+    const w = {main: m.value, models: e.status === 'fulfilled' ? e.value : null, at: Date.now()};
+    S.wxc[locKey(L)] = w;
+    if (locKey(S.loc) === locKey(L)){ S.wx = w; WXC = null; }
+    save();
   } else toast(S.wx ? '오프라인이에요 · 마지막 날씨를 보여줘요' : '날씨를 불러오지 못했어요');
   render();
 }
@@ -264,9 +280,7 @@ function briefing(info, mode){
   if (info.uv >= 6 && info.h0 < 16) items.push(['☀️', '자외선 강해요 · 선크림·모자']);
   if (info.base >= 30) items.push(['🥵', '무더워요 · 물 자주 마시기']);
   mode.tips(info).forEach(t => { const k = t.indexOf(' '); items.push([t.slice(0, k), t.slice(k + 1)]); });
-  const sp = info.spread ? Math.max(0.5, Math.round(info.spread)) / 2 : null;
-  items.push(['🛰️', info.models > 1 ? `세계 기상모델 ${info.models}곳 종합 · 예보 차이 ±${sp}°` +
-    (info.spread >= 4 ? ' · <b>차이가 커서 한 겹 더 챙기면 안심</b>' : '') : '기상모델 1곳 기준']);
+  if (info.spread >= 4) items.push(['🤔', '예보끼리 차이가 커요 · <b>한 겹 더 챙기면 안심</b>']);
   if (info.i >= 7) items.push(['📅', '먼 날짜라 예보가 바뀔 수 있어요 · 가까워지면 다시 확인해 주세요']);
   return { headline: `${feelWord(info.base)}${cond ? ', ' + cond : ''}`, items };
 }
@@ -354,8 +368,8 @@ function renderDays(W){
 
 function render(){
   const mode = cur(), W = wx();
-  $('#placeName').textContent = S.loc ? S.loc.name : '위치를 설정해 주세요';
-  $('#setLocName').textContent = S.loc ? S.loc.name : '없음';
+  renderLocs();
+  $('#setLocName').textContent = S.loc ? S.loc.full || S.loc.name : '없음';
   renderModes();
   $('#whenTabs').hidden = !mode.when;
   if (mode.when) $('#whenTabs').innerHTML = Object.entries(WHEN).map(([k, w]) =>
@@ -379,7 +393,8 @@ function render(){
   if (P && infos.some(x => !x)) return; // 데이터 부족
   if (period == null || period > 2) period = defaultPeriod();
   const sel = P ? infos[period] : info;
-  $('#heroDate').textContent = `${day === 0 ? '오늘' : day === 1 ? '내일' : ''} ${dt.getMonth()+1}월 ${dt.getDate()}일 (${WD[dt.getDay()]})`.trim();
+  $('#heroDate').innerHTML = `${day === 0 ? '오늘' : day === 1 ? '내일' : ''} ${dt.getMonth()+1}월 ${dt.getDate()}일 (${WD[dt.getDay()]})`.trim() +
+    `<span class="addr">📍 ${esc(S.loc.full || S.loc.name)}</span>`;
   $('#heroIcon').innerHTML = wxIcon(sel.sky.kind, 84);
   $('#skyLabel').textContent = sel.sky.label;
   $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PERIODS[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
@@ -495,7 +510,7 @@ function renderDaily(W){
       <div class="drange"><span class="lo">${d.tmin}°</span><span class="bar"><i style="left:${left}%;width:${width}%;
         background:linear-gradient(90deg,hsl(${hueOf(d.tmin).toFixed(0)} 60% 75%),hsl(${hueOf(d.tmax).toFixed(0)} 60% 72%))"></i></span><span class="hi">${d.tmax}°</span></div>
     </button>`;
-  }).join('') + `<div class="fcnote">기온은 실제 기온 · 먼 날짜일수록 예보 모델 수가 줄어 정확도가 낮아요</div>`;
+  }).join('') + `<div class="fcnote">기온은 실제 기온 · 먼 날짜일수록 정확도가 낮아요</div>`;
 }
 
 function renderRate(){
@@ -700,38 +715,186 @@ $('#logDel').onclick = () => {
 };
 
 /* ---- 위치 ---- */
-function useGPS(){
-  if (!navigator.geolocation){ toast('위치 기능을 쓸 수 없어요'); openSheet('#locSheet'); return; }
-  $('#placeName').textContent = '위치 확인 중…';
-  navigator.geolocation.getCurrentPosition(async p => {
-    const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
-    let name = '현재 위치';
-    try {
-      const r = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`)).json();
-      name = r.locality || r.city || r.principalSubdivision || name;
-    } catch(e){}
-    S.loc = {lat, lon, name, gps:true}; save(); closeSheet(); render(); fetchWeather();
-  }, () => { toast('위치 권한이 없어서 도시를 검색해 주세요'); render(); openSheet('#locSheet'); setTimeout(()=>$('#locSearch').focus(),300); },
-  {timeout:10000, maximumAge:600000});
+const SIDO_SHORT = x => ({경기도:'경기', 강원특별자치도:'강원', 강원도:'강원', 충청북도:'충북', 충청남도:'충남', 전라북도:'전북', 전북특별자치도:'전북',
+  전라남도:'전남', 경상북도:'경북', 경상남도:'경남', 제주특별자치도:'제주', 세종특별자치시:'세종', 전남광주통합특별시:'전남광주'}[x] || x.replace(/특별시|광역시/, ''));
+const shortAddr = a => { const t = (a || '').split(' '); if (t[0]) t[0] = SIDO_SHORT(t[0]); return t.join(' '); };
+const sggFmt = g => g.replace(/^(.+?시)(.+구)$/, '$1 $2');
+let KRD = null;
+function krData(){
+  if (KRD) return KRD;
+  KRD = (window.KR_DONG || '').split('\n').filter(Boolean).map(line => {
+    const [si, g, d, la, lo] = line.split('|'), sido = KR_SIDO[+si], ss = SIDO_SHORT(sido), gg = sggFmt(g);
+    return {sido, ss, g: gg, d, lat: +la, lon: +lo, full: [ss, gg, d].filter(Boolean).join(' '), hay: `${sido} ${ss} ${g} ${gg} ${d}`};
+  });
+  return KRD;
+}
+const inKorea = (lat, lon) => lat > 33 && lat < 38.7 && lon > 124.5 && lon < 131;
+function nearestKR(lat, lon){
+  let best = null, bd = 1e9; const c = Math.cos(lat * Math.PI / 180);
+  for (const r of krData()){ const dx = (r.lon - lon) * c, dy = r.lat - lat, d = dx*dx + dy*dy; if (d < bd){ bd = d; best = r; } }
+  return best && Math.sqrt(bd) * 111 < 15 ? best : null;
+}
+
+// 카카오 (국내 주소·장소 검색) — config.js에 키가 있을 때만
+let kakaoP = null;
+function kakaoSDK(){
+  const key = (window.APP_CONFIG || {}).kakaoKey; if (!key) return Promise.resolve(null);
+  return kakaoP ||= new Promise(res => {
+    const sc = document.createElement('script');
+    sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&libraries=services&autoload=false`;
+    sc.onload = () => { try { kakao.maps.load(() => res(window.kakao)); } catch(e){ res(null); } };
+    sc.onerror = () => res(null); document.head.appendChild(sc); setTimeout(() => res(null), 8000);
+  });
+}
+async function kakaoSearch(q){
+  const K = await kakaoSDK(); if (!K) return null;
+  const sv = K.maps.services, OK = sv.Status.OK;
+  const [a, k] = await Promise.all([
+    new Promise(r => new sv.Geocoder().addressSearch(q, (res, st) => r(st === OK ? res : []), {size: 10})),
+    new Promise(r => new sv.Places().keywordSearch(q, (res, st) => r(st === OK ? res : []), {size: 10})) ]);
+  return [...a.map(x => ({name: x.address_name.split(' ').slice(/ADDR$/.test(x.address_type) ? -2 : -1).join(' '), full: shortAddr(x.address_name), lat: +x.y, lon: +x.x})),
+          ...k.map(x => ({name: x.place_name, full: shortAddr(x.road_address_name || x.address_name), lat: +x.y, lon: +x.x}))];
+}
+async function kakaoReverse(lat, lon){
+  const K = await kakaoSDK(); if (!K) return null;
+  const sv = K.maps.services;
+  return new Promise(r => new sv.Geocoder().coord2RegionCode(lon, lat, (res, st) => {
+    if (st !== sv.Status.OK || !res.length) return r(null);
+    const h = res.find(x => x.region_type === 'H') || res[0];
+    r({name: h.region_3depth_name || h.region_2depth_name, full: shortAddr([h.region_1depth_name, h.region_2depth_name, h.region_3depth_name].filter(Boolean).join(' '))});
+  }));
+}
+// 키가 없을 때 도로명 등은 OpenStreetMap으로
+async function osmSearch(q){
+  const js = await (await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=kr&accept-language=ko&limit=8&q=${encodeURIComponent(q)}`)).json();
+  const seen = new Set();
+  return js.map(x => {
+    const parts = x.display_name.split(', ').filter(p => !/^\d{5}$/.test(p) && p !== '대한민국').reverse();
+    if (parts[0]) parts[0] = SIDO_SHORT(parts[0]);
+    return {name: x.name || parts[parts.length - 1], full: parts.join(' '), lat: +x.lat, lon: +x.lon};
+  }).filter(x => !seen.has(x.full) && seen.add(x.full));
+}
+async function worldSearch(q){
+  const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=ko`)).json();
+  return (r.results || []).filter(x => x.country_code !== 'KR' && x.country_code !== 'KP').map(x => ({name: x.name, full: [x.admin1, x.country].filter(Boolean).join(', '), lat: x.latitude, lon: x.longitude}));
+}
+// 앱에 들어있는 행정구역 데이터로 즉시 검색: "도안동" → 해당 동, "상주" → 상주시의 읍·면·동 전체
+function localSearch(q){
+  const toks = q.split(/\s+/).filter(Boolean); if (!toks.length) return [];
+  const last = toks[toks.length - 1];
+  const rows = krData().filter(r => toks.every(t => r.hay.includes(t)));
+  const dongs = rows.filter(r => r.d.includes(last))
+    .sort((a, b) => (b.d.startsWith(last) - a.d.startsWith(last)) || a.d.length - b.d.length).slice(0, 12);
+  const groups = new Map();
+  for (const r of rows) if (!r.d.includes(last)) { const k = `${r.ss} ${r.g}`.trim(); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+  const out = dongs.map(r => ({name: r.d, full: r.full, lat: r.lat, lon: r.lon}));
+  const gs = [...groups.entries()], wide = gs.length > 3; // "대전"처럼 넓게 찾으면 시군구 목록만
+  for (const [k, list] of gs.slice(0, wide ? 40 : 3)){
+    out.push({name: list[0].g || list[0].ss, full: `${k} 전체`, lat: avg(list.map(x => x.lat)), lon: avg(list.map(x => x.lon)), group: true});
+    if (!wide) list.forEach(r => out.push({name: r.d, full: r.full, lat: r.lat, lon: r.lon, child: true}));
+  }
+  return out;
+}
+
+let searchSeq = 0, RESULTS = [];
+function doSearch(q){
+  const seq = ++searchSeq, hangul = /[가-힣]/.test(q);
+  const sec = {local: hangul ? localSearch(q) : [], road: hangul && q.length >= 2 ? null : [], world: null};
+  const draw = () => {
+    if (seq !== searchSeq) return;
+    RESULTS = []; let html = '';
+    const block = (title, list) => {
+      if (!list || !list.length) return;
+      html += `<div class="sec-title">${title}</div>` + list.map(x => { RESULTS.push(x);
+        return `<button class="result ${x.group ? 'group' : ''} ${x.child ? 'child' : ''}" data-i="${RESULTS.length - 1}"><b>${esc(x.name)}</b><span>${esc(x.full)}</span></button>`; }).join('');
+    };
+    const localFull = new Set(sec.local.map(x => x.full));
+    block('지역', sec.local); block('도로·장소', sec.road && sec.road.filter(x => !localFull.has(x.full))); block('해외', sec.world);
+    const loading = sec.road === null || sec.world === null;
+    $('#locResults').innerHTML = html || `<div class="empty" style="padding:30px">${loading ? '찾는 중…' : '검색 결과가 없어요'}</div>`;
+  };
+  draw();
+  if (sec.road === null) kakaoSearch(q).then(r => r ?? osmSearch(q)).catch(() => []).then(r => { sec.road = r || []; draw(); });
+  worldSearch(q).catch(() => []).then(r => { sec.world = r; draw(); });
 }
 let searchT;
 $('#locSearch').addEventListener('input', e => {
   clearTimeout(searchT); const q = e.target.value.trim();
-  if (q.length < 1){ $('#locResults').innerHTML=''; return; }
-  searchT = setTimeout(async () => {
-    try {
-      const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=ko`)).json();
-      $('#locResults').innerHTML = (r.results||[]).map(x => `<button class="result" data-lat="${x.latitude}" data-lon="${x.longitude}" data-name="${esc(x.name)}">
-        ${esc(x.name)}<span>${esc([x.admin1, x.country].filter(Boolean).join(', '))}</span></button>`).join('') ||
-        '<div class="empty" style="padding:30px">검색 결과가 없어요</div>';
-    } catch(e){ $('#locResults').innerHTML = '<div class="empty" style="padding:30px">인터넷 연결을 확인해 주세요</div>'; }
-  }, 300);
+  if (!q){ $('#locResults').innerHTML = ''; return; }
+  if (/[가-힣]/.test(q)) $('#locResults').innerHTML = ''; // 지역 결과는 바로
+  searchT = setTimeout(() => doSearch(q), 400);
 });
 $('#locResults').addEventListener('click', e => {
   const b = e.target.closest('.result'); if (!b) return;
-  S.loc = {lat:+b.dataset.lat, lon:+b.dataset.lon, name:b.dataset.name, gps:false}; save();
-  closeSheet(); $('#locSearch').value=''; $('#locResults').innerHTML=''; render(); fetchWeather();
+  addPlace(RESULTS[+b.dataset.i]);
 });
+
+function addPlace(x){
+  const p = {id: 'p' + Date.now().toString(36), name: x.name, full: x.full, lat: +(+x.lat).toFixed(3), lon: +(+x.lon).toFixed(3)};
+  const same = S.places.find(q => locKey(q) === locKey(p));
+  if (same) return selectLoc(same.id), closeLocSheet();
+  if (S.places.length >= MAX_PLACES){
+    const old = S.places.find(q => q.id === S.locSel) || S.places[0];
+    if (!confirm(`저장한 지역은 ${MAX_PLACES}곳까지예요. '${old.name}' 대신 '${p.name}'을(를) 넣을까요?`)) return;
+    S.places = S.places.map(q => q.id === old.id ? p : q);
+  } else S.places.push(p);
+  track('place/added', '지역 추가');
+  selectLoc(p.id); closeLocSheet();
+}
+function closeLocSheet(){ closeSheet(); $('#locSearch').value = ''; $('#locResults').innerHTML = ''; }
+function selectLoc(sel){
+  S.locSel = sel;
+  S.loc = sel === 'gps' ? (S.gps ? {...S.gps, gps: true} : null) : {...S.places.find(p => p.id === sel), gps: false};
+  S.wx = S.loc ? S.wxc[locKey(S.loc)] || null : null; WXC = null; renderDays.done = false;
+  const keep = new Set([S.gps, ...S.places].filter(Boolean).map(locKey));
+  for (const k in S.wxc) if (!keep.has(k)) delete S.wxc[k];
+  save(); render(); renderSaved();
+  if (!S.loc) useGPS(); else if (stale()) fetchWeather();
+}
+function renderLocs(){
+  $('#locs').innerHTML = [`<button class="loc ${S.locSel === 'gps' ? 'on' : ''}" data-l="gps">📍 ${esc(S.gps ? S.gps.name : '현재 위치')}</button>`,
+    ...S.places.map(p => `<button class="loc ${S.locSel === p.id ? 'on' : ''}" data-l="${p.id}">${esc(p.name)}</button>`),
+    S.places.length < MAX_PLACES ? '<button class="loc add" data-l="add" aria-label="지역 추가">＋</button>' : ''].join('');
+}
+function renderSaved(){
+  $('#savedList').innerHTML = `<div class="sec-title">저장한 지역 (${S.places.length}/${MAX_PLACES})</div>` + (S.places.length ? S.places.map(p => `
+    <div class="saved"><div><b>${esc(p.name)}</b><span>${esc(p.full)}</span></div><button class="x" data-del="${p.id}" aria-label="삭제">✕</button></div>`).join('')
+    : '<div class="why" style="padding:6px 4px">위에서 검색해서 고르면 맨 위 탭에 추가돼요.</div>');
+}
+function openLocSheet(){ renderSaved(); openSheet('#locSheet'); setTimeout(() => $('#locSearch').focus(), 300); }
+$('#locs').onclick = e => {
+  const b = e.target.closest('.loc'); if (!b) return;
+  const l = b.dataset.l;
+  if (l === 'add') return openLocSheet();
+  if (l === S.locSel) return l === 'gps' ? (toast('현재 위치를 다시 찾아요'), useGPS()) : openLocSheet();
+  selectLoc(l);
+};
+$('#savedList').onclick = e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  S.places = S.places.filter(p => p.id !== b.dataset.del);
+  if (S.locSel === b.dataset.del) selectLoc('gps'); else { save(); renderLocs(); renderSaved(); }
+};
+
+async function placeName(lat, lon){
+  if (inKorea(lat, lon)){
+    const k = await kakaoReverse(lat, lon).catch(() => null); if (k) return k;
+    const n = nearestKR(lat, lon); if (n) return {name: n.d, full: n.full};
+  }
+  try {
+    const r = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`)).json();
+    const name = r.locality || r.city || r.principalSubdivision || '현재 위치';
+    return {name, full: [r.city && r.city !== name ? r.city : '', name, r.countryName].filter(Boolean).join(', ')};
+  } catch(e){ return {name: '현재 위치', full: '현재 위치'}; }
+}
+function useGPS(){
+  if (!navigator.geolocation){ toast('위치 기능을 쓸 수 없어요 · 지역을 검색해 주세요'); openLocSheet(); return; }
+  navigator.geolocation.getCurrentPosition(async p => {
+    const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
+    S.gps = {lat, lon, ...(await placeName(lat, lon))};
+    if (S.locSel === 'gps' || !S.loc){ closeSheet(); selectLoc('gps'); } else { save(); renderLocs(); }
+  }, () => { toast('위치 권한이 없어서 지역을 검색해 주세요'); render(); if (!S.loc) openLocSheet(); },
+  {timeout: 10000, maximumAge: 600000});
+}
 
 /* ---- 이벤트 ---- */
 const selectDay = i => { day = i; variant = 0; period = defaultPeriod(); render(); };
@@ -764,9 +927,10 @@ $('#modeList').onclick = e => {
 };
 $('#modeDone').onclick = closeSheet;
 $('#histFilter').onclick = e => { const b = e.target.closest('button'); if (b){ histFilter = b.dataset.f; renderHist(); } };
-$('#placeBtn').onclick = $('#setLoc').onclick = () => openSheet('#locSheet');
+$('#setLoc').onclick = openLocSheet;
 $('#setModes').onclick = () => { renderModeSheet(); openSheet('#modeSheet'); };
-$('#gpsBtn').onclick = $('#setGps').onclick = useGPS;
+$('#gpsBtn').onclick = () => { closeLocSheet(); selectLoc('gps'); if (S.gps) useGPS(); };
+$('#setGps').onclick = () => { selectLoc('gps'); if (S.gps) useGPS(); };
 $('#refreshBtn').onclick = () => { toast('날씨를 새로 불러와요'); S.loc?.gps ? useGPS() : fetchWeather(); };
 $('#dim').onclick = closeSheet;
 $('#woreBtn').onclick = () => {
@@ -835,8 +999,8 @@ startAnalytics();
 render();
 dailyStats();
 const stale = () => !S.wx || Date.now() - S.wx.at > 30*60e3 || S.wx.main.daily.time[0] !== todayStr();
-if (!S.loc) useGPS();
-else if (stale()) (S.loc.gps ? useGPS() : fetchWeather());
+if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
+if (S.loc && stale()) fetchWeather();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){ dailyStats(); if (S.loc && stale()) fetchWeather(); }
 });

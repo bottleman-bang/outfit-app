@@ -35,9 +35,14 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 input{font:inherit;color:inherit}
 [hidden]{display:none !important}
 .wrap{max-width:480px;margin:0 auto;padding:12px 16px}
-.top{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 8px}
-.place{font-size:17px;font-weight:700;display:flex;gap:6px;align-items:center;padding:6px 10px;margin-left:-10px;border-radius:12px}
-.place:active,.icon-btn:active{background:var(--soft)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 8px}
+.icon-btn:active{background:var(--soft)}
+.locs{display:flex;gap:6px;flex:1;min-width:0;padding:2px 0}
+.loc{flex:0 1 auto;min-width:0;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px 12px;border-radius:999px;
+  background:var(--card);box-shadow:var(--shadow);font-size:14.5px;font-weight:700;border:1.5px solid transparent}
+.loc.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc-line)}
+.loc.add{flex:none;width:38px;padding:8px 0;color:var(--sub);background:none;box-shadow:none;border:1.5px dashed var(--line)}
+.hero-date .addr{display:block;font-size:12.5px;font-weight:600;opacity:.75;margin-top:2px}
 .icon-btn{width:40px;height:40px;border-radius:12px;font-size:20px;display:grid;place-items:center;color:var(--sub)}
 .hscroll-row{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none}
 .hscroll-row::-webkit-scrollbar{display:none}
@@ -243,8 +248,15 @@ input{font:inherit;color:inherit}
 .seg-ex{margin:6px 2px 0;font-size:12.5px}
 .search{width:100%;padding:14px 16px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);font-size:17px;outline:none}
 .search:focus{border-color:var(--acc-line)}
-.result{display:block;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid var(--line);font-size:16px;font-weight:600}
-.result span{color:var(--sub);font-size:13.5px;font-weight:500;margin-left:6px}
+.result{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;padding:13px 6px;border-bottom:1px solid var(--line);font-size:16px}
+.result b{flex:none;font-weight:700}
+.result span{color:var(--sub);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result.group{background:var(--soft);border-radius:12px;border-bottom:0;margin-top:4px}
+.result.child{padding-left:20px;font-size:15px}
+.sec-title{font-size:13px;font-weight:800;color:var(--sub);margin:16px 4px 4px}
+.saved{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.saved b{display:block;font-size:16px}.saved span{font-size:13px;color:var(--sub)}
+.saved .x{margin-left:auto;color:var(--sub);font-size:17px;padding:6px 10px}
 .group-title{font-weight:800;color:var(--sub);font-size:13.5px;margin:18px 4px 4px}
 .mrow{display:flex;align-items:center;gap:14px;width:100%;padding:12px 4px;border-bottom:1px solid var(--line);text-align:left}
 .mrow .e{font-size:30px;width:38px;text-align:center}
@@ -264,10 +276,7 @@ input{font:inherit;color:inherit}
 <!-- ============ 오늘 ============ -->
 <main class="view on" id="v-home">
   <div class="wrap">
-    <div class="top">
-      <button class="place" id="placeBtn">📍 <span id="placeName">위치 확인 중…</span> <span style="opacity:.5">▾</span></button>
-      <button class="icon-btn" id="refreshBtn" aria-label="새로고침">↻</button>
-    </div>
+    <div class="top"><div class="locs" id="locs"></div></div>
 
     <div class="hscroll-row" id="modes"></div>
     <div class="hscroll-row" id="days"></div>
@@ -302,7 +311,7 @@ input{font:inherit;color:inherit}
     </section>
 
     <section class="card" id="fcCard">
-      <div class="fc-head"><h2 style="margin:0">예보</h2>
+      <div class="fc-head"><h2 style="margin:0;display:flex;align-items:center;gap:2px">예보<button class="icon-btn" id="refreshBtn" aria-label="새로고침" style="width:32px;height:32px;font-size:17px">↻</button></h2>
         <div class="seg2" id="fcTabs"><button data-t="hourly" class="on">시간별</button><button data-t="daily">날짜별</button></div></div>
       <div id="fcBody"></div>
     </section>
@@ -392,10 +401,11 @@ input{font:inherit;color:inherit}
 
 <!-- 위치 시트 -->
 <div class="sheet" id="locSheet"><div class="grab"></div><div class="wrap">
-  <h3>위치 바꾸기</h3>
+  <h3>지역 선택</h3>
   <button class="btn" id="gpsBtn" style="width:100%;margin-bottom:12px">🛰️ 현재 위치 사용</button>
-  <input class="search" id="locSearch" placeholder="도시 이름 검색 (예: 서울, Tokyo, Paris)" autocomplete="off">
-  <div id="locResults" style="min-height:200px"></div>
+  <input class="search" id="locSearch" placeholder="동네·도로명·도시 검색 (예: 도안동, 원도안로, 상주, Tokyo)" autocomplete="off">
+  <div id="locResults"></div>
+  <div id="savedList"></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -403,6 +413,7 @@ input{font:inherit;color:inherit}
 <script src="config.js"></script>
 <script src="concepts.js"></script>
 <script src="icons.js"></script>
+<script src="regions.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
