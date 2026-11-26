@@ -4,13 +4,34 @@ const CAT_ORDER = ['markets', 'economy', 'bonds', 'commodities', 'crypto', 'tech
 
 function newsTitle(x){ return x.tk || x.t; }
 function newsItem(x, big){
+  if (big) return topItem(x);
   const orig = S.newsOrig && x.tk && x.tk !== x.t ? `<div class="no">${esc(x.t)}</div>` : '';
-  return `<a class="ni ${big ? 'nbig' : ''}" href="${esc(x.u)}" target="_blank" rel="noopener">
-    ${big ? `<div class="nt"><span class="ncat">${CAT_E[x.c] || '📰'} ${esc((DC.news?.data?.catNames || {})[x.c] || '')}</span>${x.n > 1 ? `<span class="nn">${x.n}개 매체</span>` : ''}</div>` : ''}
+  return `<a class="ni" href="${esc(x.u)}" target="_blank" rel="noopener">
     <div class="nh">${esc(newsTitle(x))}</div>${orig}
-    ${x.sum ? `<div class="ns">${esc(x.sum)}</div>` : ''}${x.why ? `<div class="nw">💡 ${esc(x.why)}</div>` : ''}
-    <div class="nm">${esc(x.s)} · ${ago(x.p)}${x.also && x.also.length ? ` · 함께 보도: ${x.also.map(a => esc(a.s)).join(', ')}` : ''}</div></a>`;
+    <div class="nm">${esc(x.s)} · ${ago(x.p)}</div></a>`;
 }
+// 주요 뉴스: 누르면 펼쳐지는 3~5줄 요약 + 원문 링크
+function topItem(x, open){
+  const orig = S.newsOrig && x.tk && x.tk !== x.t ? `<div class="no">${esc(x.t)}</div>` : '';
+  const lines = Array.isArray(x.sum) ? x.sum : x.sum ? [x.sum] : [];
+  const ai = x.sumType === 'ai' || (!x.sumType && lines.length && N_AI());
+  const label = lines.length ? (ai ? '✨ AI 요약' : '📝 요약') : '원문 링크';
+  const links = [{s: x.s, u: x.u, main: true}, ...(x.also || [])];
+  return `<details class="ni nbig" ${open ? 'open' : ''}>
+    <summary>
+      <div class="nt"><span class="ncat">${CAT_E[x.c] || '📰'} ${esc((DC.news?.data?.catNames || {})[x.c] || '')}</span>${x.n > 1 ? `<span class="nn">${x.n}개 매체</span>` : ''}</div>
+      <div class="nh">${esc(newsTitle(x))}</div>${orig}
+      <div class="nm">${esc(x.s)} · ${ago(x.p)}<span class="nmore"><span class="c">${label} ▾</span><span class="o">접기 ▴</span></span></div>
+    </summary>
+    <div class="nbody">
+      ${lines.length ? `<ul class="nsum">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+      ${x.why ? `<div class="nw">💡 ${esc(x.why)}</div>` : ''}
+      ${lines.length && !ai ? '<div class="nnote">기사 앞부분을 자동 번역해 정리했어요</div>' : ''}
+      <div class="nlinks">${links.map(l => `<a class="nbtn ${l.main ? 'main' : ''}" href="${esc(l.u)}" target="_blank" rel="noopener">${l.main ? '📰 원문 보기 · ' : ''}${esc(l.s)} ↗</a>`).join('')}</div>
+    </div>
+  </details>`;
+}
+const N_AI = () => !!(DC.news && DC.news.data && DC.news.data.ai);
 function ruleNewsBrief(N){
   const P = PH.nw, out = [];
   const top = (N.top || []).slice(0, 4);
@@ -38,8 +59,8 @@ async function renderNews(force){
   el.innerHTML = `
     <section class="card mbrief"><div class="tt">🔑 오늘의 핵심 <span class="badge">${N.ai && N.brief?.length ? 'AI 요약' : '자동 정리'}</span></div>
       <ul>${brief.map(l => `<li>${l}</li>`).join('')}</ul></section>
-    <section class="card"><h2>⭐ 주요 뉴스</h2><div class="why" style="margin:0 0 6px">여러 매체가 다루고 시장에 영향이 큰 순서예요</div>
-      ${top.map(x => newsItem(x, true)).join('') || '<div class="empty" style="padding:20px">관심 분류에 맞는 주요 뉴스가 없어요</div>'}</section>
+    <section class="card"><h2>⭐ 주요 뉴스</h2><div class="why" style="margin:0 0 6px">여러 매체가 다루고 시장에 영향이 큰 순서예요 · 누르면 요약이 펼쳐져요</div>
+      ${top.map((x, i) => topItem(x, i === 0)).join('') || '<div class="empty" style="padding:20px">관심 분류에 맞는 주요 뉴스가 없어요</div>'}</section>
     <section class="card"><h2>🗂️ 분류별 뉴스</h2>
       <div class="hscroll-row" id="nwTabs" style="margin-bottom:6px">${[['all', '전체'], ...cats.map(c => [c, `${CAT_E[c]} ${N.catNames[c]}`])].map(([k, l]) =>
         `<button class="mode ${cur === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div>

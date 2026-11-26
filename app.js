@@ -841,12 +841,13 @@ function renderDaily(W){
     const dt = new Date(d.date + 'T00:00');
     const name = d.i === 0 ? '오늘' : d.i === 1 ? '내일' : WD[dt.getDay()];
     const left = (d.tmin - lo) / span * 100, width = Math.max(6, (d.tmax - d.tmin) / span * 100);
-    const extra = [d.mm >= 0.1 ? `💧 ${d.mm >= 10 ? Math.round(d.mm) : r1(d.mm)}mm${d.p ? ` · ${d.p}%` : ''}` : d.p >= 30 ? `💧 ${d.p}%` : '',
-      d.w >= 5 ? `💨 ${d.w}m/s` : ''].filter(Boolean).join('  ');
+    // 강수·바람은 줄을 나눠 보여줘요 (온도 막대가 잘리지 않게)
+    const rain = d.mm >= 0.1 ? `💧${d.mm >= 10 ? Math.round(d.mm) : r1(d.mm)}mm${d.p ? `·${d.p}%` : ''}` : d.p >= 30 ? `💧${d.p}%` : '';
+    const wind = d.w >= 5 ? `💨${d.w}m/s` : '';
     return `<button class="drow ${d.i===day?'on':''}" data-d="${d.i}">
       <div class="dname ${dt.getDay()===0?'sun':dt.getDay()===6?'sat':''}"><b>${name}</b><span>${dt.getMonth()+1}.${dt.getDate()}</span></div>
-      ${wxIcon(d.sky.kind, 36)}
-      <div class="dmid"><b>${d.sky.label}</b><span>${extra || '&nbsp;'}</span></div>
+      ${wxIcon(d.sky.kind, 32)}
+      <div class="dmid"><b>${d.sky.label}</b>${rain ? `<span>${rain}</span>` : ''}${wind ? `<span>${wind}</span>` : ''}</div>
       <div class="drange"><span class="lo">${d.tmin}°</span><span class="bar"><i style="left:${left}%;width:${width}%;
         background:linear-gradient(90deg,hsl(${hueOf(d.tmin).toFixed(0)} 60% 75%),hsl(${hueOf(d.tmax).toFixed(0)} 60% 72%))"></i></span><span class="hi">${d.tmax}°</span></div>
     </button>`;
