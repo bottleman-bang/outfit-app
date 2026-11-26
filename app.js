@@ -562,7 +562,7 @@ function renderDays(W){
     const name = d.i === 0 ? '오늘' : d.i === 1 ? '내일' : WD[dt.getDay()];
     return `<button class="dchip ${d.i===day?'on':''} ${dt.getDay()===0?'sun':dt.getDay()===6?'sat':''}" data-d="${d.i}">
       <span class="dn">${name}</span><span class="dd">${dt.getDate()}</span>${wxIcon(d.sky.kind, 30)}
-      <span class="dt"><b>${d.tmax}°</b> ${d.tmin}°</span></button>`;
+      <span class="dt">${d.tmin}° <b>${d.tmax}°</b></span></button>`;
   }).join('');
   const on = $('#days .dchip.on'); if (on && !renderDays.done){ renderDays.done = true; on.scrollIntoView({inline:'center', block:'nearest'}); }
 }
