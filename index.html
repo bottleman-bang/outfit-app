@@ -305,6 +305,100 @@ input{font:inherit;color:inherit}
   padding:12px 18px;border-radius:14px;font-weight:700;font-size:14.5px;opacity:0;transition:.25s;z-index:20;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .wxi{display:block}
+/* 하위 탭 · 공통 */
+.subtabs{display:inline-flex;background:var(--soft);border-radius:12px;padding:3px;margin:2px 0 4px}
+.subtabs button{padding:6px 14px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--sub)}
+.subtabs button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.sgroup{font-size:14px;font-weight:800;color:var(--sub);margin:22px 4px 6px}
+.upd{font-size:12.5px;color:var(--sub);font-weight:600;margin-top:2px}
+.badge{font-size:11px;font-weight:800;background:var(--acc);color:var(--acc-ink);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:2px}
+.disc{font-size:12px;color:var(--sub);text-align:center;line-height:1.6;margin:16px 6px 8px}
+:root{--up:#D9534A;--dn:#3C78D0;--flat-bg:#ECE7E2}
+@media (prefers-color-scheme: dark){ :root{--up:#F07A6E;--dn:#6FA0EC;--flat-bg:#3A3530} }
+.usclr{--up:#1F9D5B;--dn:#D9534A}
+@media (prefers-color-scheme: dark){ .usclr{--up:#4CC387;--dn:#F07A6E} }
+.up{color:var(--up)}.dn{color:var(--dn)}.fl{color:var(--sub)}
+.mbrief .tt{font-weight:800;font-size:16px;margin-bottom:6px}
+.mbrief ul{margin:0;padding:0;list-style:none}
+.mbrief li{font-size:14.5px;line-height:1.6;padding:7px 0;border-top:1px dashed var(--line)}
+.mbrief li:first-child{border-top:0}
+/* 뉴스 */
+.ni{display:block;text-decoration:none;color:inherit;padding:12px 2px;border-top:1px solid var(--line)}
+.ni:first-of-type{border-top:0}
+.ni.nbig .nh{font-size:16px}
+.nt{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.ncat{font-size:12px;font-weight:800;color:var(--sub)}
+.nn{font-size:11px;font-weight:800;background:var(--soft);border-radius:999px;padding:1px 7px;color:var(--acc-ink)}
+.nh{font-size:15px;font-weight:700;line-height:1.45}
+.no{font-size:12.5px;color:var(--sub);margin-top:2px;line-height:1.4}
+.ns{font-size:14px;line-height:1.55;margin-top:5px}
+.nw{font-size:13px;line-height:1.5;margin-top:4px;color:var(--acc-ink)}
+.nm{font-size:12px;color:var(--sub);margin-top:5px}
+/* 증시 */
+.card h2 .fgb{font-size:12px;font-weight:700;color:var(--sub);margin-left:6px}
+.idxg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.idxg.sm{grid-template-columns:1fr 1fr}
+.idx{display:block;text-decoration:none;color:inherit;background:var(--soft);border-radius:16px;padding:10px 12px;overflow:hidden}
+.idx .in{font-size:13px;font-weight:700;color:var(--sub);display:flex;justify-content:space-between;gap:4px}
+.idx .in small{font-weight:600;font-size:11px}
+.idx .ip{font-size:18px;font-weight:800;margin-top:2px}
+.idx.ibig .ip{font-size:22px}
+.idx .ic{font-size:12.5px;font-weight:700}
+.spk{display:block;margin-top:4px}.spk.up{stroke:var(--up)}.spk.dn{stroke:var(--dn)}.spk.fl{stroke:var(--sub)}
+.idx.ibig .spk{width:100%}
+.rg{font-size:12.5px;font-weight:800;color:var(--sub);margin:12px 2px 6px}
+.invbox{margin-top:12px}
+.invh{font-size:12.5px;font-weight:800;color:var(--sub);margin:8px 2px 4px}
+.inv{display:grid;grid-template-columns:44px 1fr 86px;align-items:center;gap:8px;font-size:13.5px;padding:3px 0}
+.inv b{text-align:right;font-size:13.5px}
+.inv .bar{position:relative;height:8px;background:var(--soft);border-radius:9px}
+.inv .bar i{position:absolute;top:0;bottom:0;border-radius:9px}
+.inv .bar i.up{background:var(--up)}.inv .bar i.dn{background:var(--dn)}
+.mgrid{display:grid;grid-template-columns:1fr;gap:2px}
+.mrw{display:grid;grid-template-columns:1fr auto 70px;gap:8px;align-items:baseline;padding:6px 2px;border-top:1px solid var(--line);font-size:14px}
+.mrw .mn{font-weight:700}.mrw .mn small{font-weight:500;color:var(--sub);font-size:12px}
+.mrw .mv{text-align:right;font-weight:700}.mrw .mv small{display:block;font-weight:500;color:var(--sub);font-size:11.5px}
+.mrw .mc{text-align:right;font-weight:700;font-size:13px}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.mhead h2{margin:0}
+.tmap{position:relative;width:100%;border-radius:14px;overflow:hidden;background:var(--line)}
+.tmap .sec{position:absolute;box-sizing:border-box}
+.tmap .sl{position:absolute;left:4px;top:1px;font-size:10.5px;font-weight:800;color:var(--sub);white-space:nowrap;overflow:hidden;max-width:calc(100% - 8px)}
+.tmap .tile{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:1px;border-radius:3px;text-align:center;line-height:1.15}
+.tmap .tile b{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tmap .tile i{font-style:normal;font-weight:700;opacity:.9}
+.tmleg{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;font-size:12px;font-weight:700}
+.tmleg .lg{width:140px;height:8px;border-radius:9px;background:linear-gradient(90deg,var(--dn),var(--flat-bg),var(--up))}
+.trow{display:grid;grid-template-columns:22px 1fr auto 68px;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.trow:first-child{border-top:0}
+.trow .rk{font-weight:800;color:var(--sub);font-size:13px;text-align:center}
+.trow .tn{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .tn small,.trow .tp small{display:block;font-weight:500;color:var(--sub);font-size:11.5px}
+.trow .tp{text-align:right;font-weight:700;font-size:13.5px}
+.trow .tc{text-align:right;font-weight:800;font-size:14px}
+.cday{font-size:13px;font-weight:800;color:var(--sub);margin:12px 2px 4px}
+.crow{display:grid;grid-template-columns:44px 22px 1fr;gap:6px;align-items:baseline;padding:6px 2px;border-top:1px solid var(--line);font-size:14px}
+.crow .ct{font-weight:700;color:var(--sub);font-size:13px}
+.crow .cn{font-weight:700}.crow .cn small{display:block;font-weight:500;color:var(--sub);font-size:12px}
+.crow .imp{font-size:10.5px;color:#fff;background:var(--up);border-radius:6px;padding:1px 5px;vertical-align:1px}
+.tip{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));max-width:440px;margin:0 auto;background:var(--card);border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 14px;font-size:15px;z-index:15;transform:translateY(20px);opacity:0;pointer-events:none;transition:.2s}
+.tip.on{opacity:1;transform:none;pointer-events:auto}
+.tip small{color:var(--sub)}.tip a{display:inline-block;margin-top:6px;font-weight:800;color:var(--acc-ink);text-decoration:none}
+/* 생활 정보 */
+.life{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.lt{background:var(--soft);border-radius:14px;padding:9px 10px;min-width:0}
+.lt .lk{font-size:12px;font-weight:700;color:var(--sub)}
+.lt .lv{font-size:16px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lt .ls{font-size:11.5px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g1{color:#2E7DD1}.g2{color:#3A9A5B}.g3{color:#D88A1F}.g4{color:#D24B3E}
+@media (prefers-color-scheme: dark){ .g1{color:#7DB4F0}.g2{color:#6CCB8C}.g3{color:#F0B45E}.g4{color:#F08377} }
+.lidx{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lidx span{background:var(--soft);border-radius:12px;padding:6px 10px;font-size:13px;font-weight:700}
+.lidx span small{font-weight:500;color:var(--sub)}
+.bring{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.bring span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12.5px;font-weight:700}
+.vsy{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;background:var(--hero-glass);border-radius:999px;padding:4px 10px}
 .onb{position:fixed;inset:0;z-index:30;background:rgba(30,25,20,.45);display:flex;align-items:center;justify-content:center;padding:20px}
 .onb-card{background:var(--bg);border-radius:28px;width:100%;max-width:380px;padding:26px 22px 18px;box-shadow:0 20px 50px rgba(0,0,0,.2);animation:onbIn .3s ease}
 @keyframes onbIn{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
@@ -331,6 +425,7 @@ input{font:inherit;color:inherit}
 <!-- ============ 오늘 ============ -->
 <main class="view on" id="v-home">
   <div class="wrap">
+    <div class="subtabs" role="tablist"><button data-sub="home">☀️ 오늘</button><button data-sub="hist">📒 기록</button></div>
     <div class="top"><div class="locs" id="locs"></div></div>
 
     <div class="hscroll-row" id="modes"></div>
@@ -346,6 +441,7 @@ input{font:inherit;color:inherit}
         <div class="hero-icon"><div id="heroIcon"></div><div class="lbl" id="skyLabel"></div></div>
       </div>
       <div class="hero-sub" id="heroSub">날씨를 불러오는 중이에요</div>
+      <div class="vsy" id="vsY" hidden></div>
       <div class="periods" id="periods" hidden></div>
       <div class="brief" id="brief"></div>
     </section>
@@ -372,14 +468,17 @@ input{font:inherit;color:inherit}
       <div id="fcBody"></div>
     </section>
 
+    <section class="card" id="lifeCard" hidden></section>
+
     <div class="banner" id="installBanner" hidden></div>
   </div>
 </main>
 
-<!-- ============ 기록 ============ -->
+<!-- ============ 기록 (날씨 탭 안) ============ -->
 <main class="view" id="v-hist">
   <div class="wrap">
-    <div class="top"><b style="font-size:24px">옷차림 기록</b>
+    <div class="subtabs" role="tablist"><button data-sub="home">☀️ 오늘</button><button data-sub="hist">📒 기록</button></div>
+    <div class="top"><b style="font-size:22px">옷차림 기록</b>
       <button class="icon-btn" id="addRecBtn" aria-label="기록 추가" style="font-size:26px;color:var(--ink)">＋</button></div>
     <div class="hscroll-row" id="histFilter" style="margin-bottom:8px"></div>
     <div class="stat" id="stats"></div>
@@ -387,15 +486,36 @@ input{font:inherit;color:inherit}
   </div>
 </main>
 
+<!-- ============ 뉴스 ============ -->
+<main class="view" id="v-news">
+  <div class="wrap">
+    <div class="top"><div><b style="font-size:24px">뉴스</b><div class="upd" id="nwUpd"></div></div>
+      <button class="icon-btn" id="nwRefresh" aria-label="새로고침">↻</button></div>
+    <div id="nwBody"></div>
+  </div>
+</main>
+
+<!-- ============ 증시 ============ -->
+<main class="view" id="v-market">
+  <div class="wrap">
+    <div class="top"><div><b style="font-size:24px">증시</b><div class="upd" id="mkUpd"></div></div>
+      <button class="icon-btn" id="mkRefresh" aria-label="새로고침">↻</button></div>
+    <div id="mkBody"></div>
+  </div>
+  <div class="tip" id="tipBox"></div>
+</main>
+
 <!-- ============ 설정 ============ -->
 <main class="view" id="v-set">
   <div class="wrap">
     <div class="top"><b style="font-size:24px">설정</b></div>
+
+    <div class="sgroup">🌤️ 날씨</div>
     <div class="card" style="margin-top:4px">
-      <button class="set-item" id="setHelp">📖 사용 설명 다시 보기 <span>›</span></button>
       <button class="set-item" id="setModes">👕 추천 종류 (일상·운동·아이) <span id="setModesName"></span></button>
-      <button class="set-item" id="setLoc">📍 위치 <span id="setLocName"></span></button>
+      <button class="set-item" id="setLoc">📍 지역 <span id="setLocName"></span></button>
       <button class="set-item" id="setGps">🛰️ 현재 위치로 자동 설정</button>
+      <button class="set-item" id="lifeRow">🌫️ 미세먼지·생활 정보 보기 <i class="switch" id="lifeSwitch"></i></button>
     </div>
     <div class="card">
       <h2 style="font-size:17px;margin-bottom:6px">🕒 보여줄 시간대</h2>
@@ -406,6 +526,25 @@ input{font:inherit;color:inherit}
       <h2 style="font-size:17px;margin-bottom:6px">📊 시간별 예보 간격</h2>
       <div class="why" style="margin-bottom:6px">시간별 예보(체감온도·강수량·바람)를 몇 시간 간격으로 볼지 골라요. 운동은 1시간이 기본이에요.</div>
       <div id="stepOpts"></div>
+    </div>
+
+    <div class="sgroup">📰 뉴스</div>
+    <div class="card" style="margin-top:4px">
+      <h2 style="font-size:17px;margin-bottom:6px">관심 분류</h2>
+      <div class="why" style="margin-bottom:10px">고른 분류만 주요 뉴스와 분류별 뉴스에 보여요.</div>
+      <div class="chips" id="newsCatOpts"></div>
+      <button class="set-item" id="newsOrigRow" style="margin-top:8px">🔤 영어 원문 제목도 같이 보기 <i class="switch" id="newsOrigSwitch"></i></button>
+    </div>
+
+    <div class="sgroup">📈 증시</div>
+    <div class="card" style="margin-top:4px">
+      <div class="steprow"><span>상승·하락 색</span><div class="seg2" id="upColorOpts"><button data-v="kr">🔴▲ 🔵▼</button><button data-v="us">🟢▲ 🔴▼</button></div></div>
+      <div class="steprow"><span>먼저 볼 시장</span><div class="seg2" id="mktOpts"><button data-v="kr">국내</button><button data-v="us">미국</button></div></div>
+    </div>
+
+    <div class="sgroup">⚙️ 공통</div>
+    <div class="card" style="margin-top:4px">
+      <button class="set-item" id="setHelp">📖 사용 설명 다시 보기 <span>›</span></button>
     </div>
     <div class="card">
       <h2 style="font-size:17px;margin-bottom:6px">💾 백업</h2>
@@ -423,18 +562,24 @@ input{font:inherit;color:inherit}
     <div class="card help">
       <h2 style="font-size:17px">🧠 추천은 어떻게 하나요?</h2>
       <p style="margin:0 0 10px"><b>날씨</b> · 유럽·미국·독일·일본·영국·프랑스·캐나다·중국 등 세계 여러 기상 모델의 예보를 모아 튀는 값을 빼고 평균을 내요.
-      바람은 체감온도에 이미 들어가 있고, 비가 오면 젖어서 더 춥기 때문에 1~2° 더 춥게 잡아요. 최대 16일까지 볼 수 있어요.<br>☂️ <b>우산 알림</b> · 비 1mm 이상 또는 확률 60% 이상이면 "우산 꼭", 0.1mm 이상 또는 40% 이상이면 "작은 우산", 눈 0.5cm 이상이면 "우산 + 미끄럼 주의"를 알려드려요.<br>⛳ <b>운동별 판단</b> (활동 시간대의 시간당 최대 강수 기준) · 골프: 2mm 이하 우산 필수, 2mm 초과 취소·연기 추천 · 러닝: 3mm 이상 실내 러닝 · 등산: 1mm 이상(또는 합계 5mm) 취소·연기 · 자전거: 0.5mm 이상 취소 · 테니스: 비 오면 야외 코트 취소 · 천둥번개는 모두 취소 추천</p>
+      바람은 체감온도에 이미 들어가 있고, 비가 오면 젖어서 더 춥기 때문에 1~2° 더 춥게 잡아요. 최대 16일까지 볼 수 있어요.<br>☂️ <b>우산 알림</b> · 비 1mm 이상 또는 확률 60% 이상이면 "우산 꼭", 0.1mm 이상 또는 40% 이상이면 "작은 우산", 눈 0.5cm 이상이면 "우산 + 미끄럼 주의"를 알려드려요.<br>⛳ <b>운동별 판단</b> (활동 시간대의 시간당 최대 강수 기준) · 골프: 2mm 이하 우산 필수, 2mm 초과 취소·연기 추천 · 러닝: 3mm 이상 실내 러닝 · 등산: 1mm 이상(또는 합계 5mm) 취소·연기 · 자전거: 0.5mm 이상 취소 · 테니스: 비 오면 야외 코트 취소 · 천둥번개는 모두 취소 추천<br>😷 <b>미세먼지</b> · 환경부 기준(PM10 81↑·PM2.5 36↑ 나쁨)으로 마스크를 알려드려요.</p>
       <p style="margin:0"><b>옷</b> · 겉옷·상의·하의·방한 소품의 <b>두께</b>를 추천해요. 입은 두께를 기록하고 <b>🥶 추웠어 / 😊 딱 좋아 / 🥵 더웠어</b>를 남기면,
       추웠던 날은 한 단계 따뜻하게, 더웠던 날은 한 단계 가볍게 고쳐서 배워요. 종류(일상·골프·아이 등)마다 따로 배워요.</p>
     </div>
+    <div class="card help">
+      <h2 style="font-size:17px">📚 데이터 출처 (모두 무료)</h2>
+      <p style="margin:0;font-size:13.5px;color:var(--sub)">날씨·미세먼지: Open-Meteo (ECMWF·NOAA·DWD·JMA·KMA·Met Office·CAMS 등) · 국내 행정구역: 통계청 경계(vuski/admdongkor) · 지역 검색: OpenStreetMap
+      · 증시: 네이버 증권·Nasdaq · 코인: CoinGecko·Upbit·alternative.me · 경제 일정: ForexFactory · 뉴스: Reuters·Bloomberg·WSJ·FT·CNBC·MarketWatch·CoinDesk·Fed·The Economist·연합뉴스·매일경제 등 (Google 뉴스 RSS 포함) · 요약·번역: GitHub Models / 자동 번역</p>
+    </div>
     <div class="card"><button class="set-item" id="resetBtn" style="color:#C9705A">모든 기록 지우기</button></div>
-    <p style="text-align:center;color:var(--sub);font-size:12px;margin:20px 0">날씨 정보: Open-Meteo (ECMWF, NOAA, DWD, JMA, KMA, Met Office 등)</p>
+    <p style="text-align:center;color:var(--sub);font-size:12px;margin:20px 0">오늘 뭐 입지 · 개인 비상업 앱</p>
   </div>
 </main>
 
 <nav class="tabbar">
-  <button class="on" data-view="home"><span class="e">👗</span>오늘</button>
-  <button data-view="hist"><span class="e">📒</span>기록</button>
+  <button class="on" data-view="home"><span class="e">🌤️</span>날씨</button>
+  <button data-view="news"><span class="e">📰</span>뉴스</button>
+  <button data-view="market"><span class="e">📈</span>증시</button>
   <button data-view="set"><span class="e">⚙️</span>설정</button>
 </nav>
 
@@ -502,5 +647,7 @@ input{font:inherit;color:inherit}
 <script src="icons.js"></script>
 <script src="regions.js"></script>
 <script src="app.js"></script>
+<script src="market.js"></script>
+<script src="news.js"></script>
 </body>
 </html>

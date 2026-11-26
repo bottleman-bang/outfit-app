@@ -7,4 +7,6 @@ window.APP_CONFIG = {
   kakaoKey: '',
   // 새 공유 주소 (예: 'https://mwoipji.pages.dev/'). 정해지면 예전 주소로 들어온 사람은 기록과 함께 여기로 옮겨져요.
   canonical: '',
+  // 뉴스·증시 데이터 (outfit-data 저장소가 15분마다 만들어요)
+  dataUrl: 'https://raw.githubusercontent.com/bottleman-bang/outfit-data/data/',
 };

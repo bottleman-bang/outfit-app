@@ -112,6 +112,8 @@ function load(){
   s.pinged ||= {date:'', keys:[]};
   s.fcTab ||= 'hourly';
   s.fcStep = {daily: 3, sport: 1, kid: 3, ...(s.fcStep || {})}; // 시간별 예보 간격 (운동은 1시간이 기본)
+  s.newsCats ||= ['markets','economy','bonds','commodities','crypto','tech','people','korea','world'];
+  s.newsOrig ??= false; s.upColor ||= 'kr'; s.mkt ||= 'kr'; s.life ??= true;
   s.periods = (s.periods || ['am','pm','eve']).filter(k => ['dawn','am','pm','eve','night'].includes(k)); if (!s.periods.length) s.periods = ['am','pm','eve'];
   // 위치: 현재 위치(gps) + 저장 지역(places), 날씨는 지역별로 저장
   s.places ||= []; s.wxc ||= {};
@@ -203,14 +205,15 @@ async function fetchWeather(){
   if (!S.loc) return;
   const L = S.loc, {lat, lon} = L;
   const base = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=${DAYS}`;
-  const mainUrl = base + `&current=temperature_2m,apparent_temperature,weather_code,is_day` +
-    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day` +
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max&wind_speed_unit=ms`;
+  const mainUrl = base + `&past_days=1&current=temperature_2m,apparent_temperature,weather_code,is_day` +
+    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day,relative_humidity_2m` +
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max,sunrise,sunset&wind_speed_unit=ms`;
+  const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=5&hourly=pm10,pm2_5,dust,ozone`;
   const modelUrl = base + `&hourly=apparent_temperature&models=${WX_MODELS.join(',')}`;
   const get = u => fetch(u).then(r => { if (!r.ok) throw 0; return r.json(); });
-  const [m, e] = await Promise.allSettled([get(mainUrl), get(modelUrl)]);
+  const [m, e, q] = await Promise.allSettled([get(mainUrl), get(modelUrl), get(aqUrl)]);
   if (m.status === 'fulfilled'){
-    const w = {main: m.value, models: e.status === 'fulfilled' ? e.value : null, at: Date.now()};
+    const w = {main: m.value, models: e.status === 'fulfilled' ? e.value : null, aq: q.status === 'fulfilled' ? q.value : null, at: Date.now()};
     S.wxc[locKey(L)] = w;
     if (locKey(S.loc) === locKey(L)){ S.wx = w; WXC = null; }
     save();
@@ -236,6 +239,8 @@ function wx(){
       sigs.add(sig); series.push(v);
     }
   }
+  const aqh = S.wx.aq && S.wx.aq.hourly, aqi = aqh ? Object.fromEntries(aqh.time.map((t, k) => [t, k])) : {};
+  const av = (key, t) => { const k = aqi[t]; return k == null || !aqh[key] ? null : aqh[key][k] ?? null; };
   const H = h.time.map((t, k) => {
     let a = h.apparent_temperature[k], spread = null, n = 1;
     const mk = midx && midx[t];
@@ -249,7 +254,9 @@ function wx(){
     return { t, date: t.slice(0,10), hour: +t.slice(11,13), a, temp: h.temperature_2m[k],
       p: h.precipitation_probability[k] ?? 0, mm: h.precipitation[k] ?? 0, snow: h.snowfall[k] ?? 0,
       code: h.weather_code[k] ?? 0, cloud: h.cloud_cover[k] ?? 0, w: h.wind_speed_10m[k] ?? 0,
-      g: h.wind_gusts_10m[k] ?? 0, dir: h.wind_direction_10m[k] ?? 0, day: h.is_day[k], spread, n };
+      g: h.wind_gusts_10m[k] ?? 0, dir: h.wind_direction_10m[k] ?? 0, day: h.is_day[k], spread, n,
+      am: h.apparent_temperature[k], rh: h.relative_humidity_2m ? h.relative_humidity_2m[k] : null,
+      pm10: av('pm10', t), pm25: av('pm2_5', t), dust: av('dust', t), o3: av('ozone', t) };
   }).filter(x => x.a != null);
   const D = d.daily.time.map((date, i) => {
     const hs = H.filter(x => x.date === date);
@@ -258,10 +265,15 @@ function wx(){
     return { i, date, tmax: Math.round(d.daily.temperature_2m_max[i]), tmin: Math.round(d.daily.temperature_2m_min[i]),
       mm: d.daily.precipitation_sum[i] ?? 0, p: d.daily.precipitation_probability_max[i] ?? 0,
       w: Math.round(d.daily.wind_speed_10m_max[i] ?? 0), uv: d.daily.uv_index_max?.[i] ?? 0,
-      sky: sky({...ag, day: 1}), models: Math.max(1, ...hs.map(x => x.n)) };
-  }).filter(x => !isNaN(x.tmax));
+      sky: sky({...ag, day: 1}), models: Math.max(1, ...hs.map(x => x.n)),
+      sunrise: d.daily.sunrise ? d.daily.sunrise[i] : null, sunset: d.daily.sunset ? d.daily.sunset[i] : null };
+  });
+  const today = d.current.time.slice(0, 10);
+  const yd = new Date(today + 'T12:00'); yd.setDate(yd.getDate() - 1);
+  const Y = H.filter(x => x.date === ymd(yd));
+  const DD = D.filter(x => !isNaN(x.tmax) && x.date >= today).map((x, j) => ({...x, i: j}));
   const nowT = d.current.time.slice(0, 13);
-  return (WXC = { at: S.wx.at, H, D, nowT, nowTemp: Math.round(d.current.temperature_2m), today: d.daily.time[0] });
+  return (WXC = { at: S.wx.at, H, D: DD, Y, nowT, nowTemp: Math.round(d.current.temperature_2m), today });
 }
 
 // 여러 시간을 하나로 묶기 (3시간 칸, 하루 등)
@@ -313,8 +325,23 @@ function dayInfo(i, mode = cur(), hrs = null){
     amin: Math.round(Math.min(...hs.map(x => x.a))), amax: Math.round(Math.max(...hs.map(x => x.a))),
     chill: ag.temp - ag.a, rainHours: hs.filter(x => x.mm >= 0.1).map(x => x.hour),
     tmin: Dd.tmin, tmax: Dd.tmax, uv: Dd.uv, sky: sky({...ag, day: hrs ? ag.day : 1}), D: Dd,
-    now: i === 0 ? W.nowTemp : null, models: ag.models };
+    now: i === 0 ? W.nowTemp : null, models: ag.models, ...extraInfo(W, i, hs, h0, h1, Dd) };
 }
+// 습도·미세먼지·일출일몰·전날과 비교
+function extraInfo(W, i, hs, h0, h1, Dd){
+  const vals = k => hs.map(x => x[k]).filter(v => v != null);
+  const mean = k => { const v = vals(k); return v.length ? Math.round(avg(v)) : null; };
+  const mx = k => { const v = vals(k); return v.length ? Math.round(Math.max(...v)) : null; };
+  const prev = (i === 0 ? W.Y : W.H.filter(x => x.date === W.D[i - 1].date)).filter(x => x.hour >= h0 && x.hour <= h1 && x.am != null);
+  const curA = hs.filter(x => x.am != null);
+  return { rh: mean('rh'), pm10: mean('pm10'), pm10max: mx('pm10'), pm25: mean('pm25'), pm25max: mx('pm25'), dust: mx('dust'), o3: mx('o3'),
+    vsPrev: prev.length >= 3 && curA.length ? Math.round(avg(curA.map(x => x.am)) - avg(prev.map(x => x.am))) : null,
+    prevLabel: i === 0 ? '어제' : i === 1 ? '오늘' : '전날', sunrise: Dd.sunrise, sunset: Dd.sunset };
+}
+const aqGrade = (v, t) => v == null ? null : t === 'pm10' ? (v <= 30 ? 1 : v <= 80 ? 2 : v <= 150 ? 3 : 4) : (v <= 15 ? 1 : v <= 35 ? 2 : v <= 75 ? 3 : 4);
+const AQ_NAME = ['', '좋음', '보통', '나쁨', '매우 나쁨'];
+const uvLevel = u => u == null ? null : u <= 2 ? [1, '낮음'] : u <= 5 ? [2, '보통'] : u <= 7 ? [3, '높음'] : u <= 10 ? [4, '매우 높음'] : [4, '위험'];
+const worstAQ = info => Math.max(aqGrade(info.pm10max, 'pm10') || 0, aqGrade(info.pm25max, 'pm25') || 0);
 const isToday = info => info && info.date === todayStr();
 
 /* ================== 체감 브리핑 ================== */
@@ -358,8 +385,22 @@ function briefing(info, mode){
       (info.chill >= 1.5 ? ` · 실제 기온 ${Math.round(info.temp)}°보다 <b>${Math.round(info.chill)}° 춥게</b> 느껴져요` : '') +
       (mode.windy && info.w >= 5 ? ' · 바람막이 필수' : '')]);
   }
-  if (info.uv >= 6 && info.h0 < 16) items.push(['☀️', '자외선 강해요 · 선크림·모자']);
-  if (info.base >= 30) items.push(['🥵', '무더워요 · 물 자주 마시기']);
+  if (info.uv >= 6 && info.h0 < 16) items.push(['☀️', say(PH.uvHigh, 'uv', {u: Math.round(info.uv)})]);
+  const g = worstAQ(info);
+  if (g >= 4) items.push(['😷', say(PH.aq.vbad, 'aq.vb', {pm25: info.pm25max ?? '–'})]);
+  else if (g === 3) items.push(['😷', say(PH.aq.bad, 'aq.b', {g: AQ_NAME[3], pm25: info.pm25max ?? '–'})]);
+  else if (g === 1 && (aqGrade(info.pm25max, 'pm25') || 0) === 1) items.push(['🍃', say(PH.aq.good, 'aq.g')]);
+  if ((info.dust || 0) >= 80) items.push(['🌪️', say(PH.aq.dust, 'aq.d', {d: info.dust})]);
+  if (info.amax >= 33) items.push(['🥵', say(PH.special.heat, 'sp.h', {t: info.amax})]);
+  else if (info.base >= 30) items.push(['🥵', say(PH.special.hot, 'sp.ho')]);
+  if (info.tmin >= 25) items.push(['🌙', say(PH.special.tropical, 'sp.tr', {t: info.tmin})]);
+  if (info.tmin <= -12) items.push(['🥶', say(PH.special.coldwave, 'sp.cw', {t: info.tmin})]);
+  if (info.rh != null && info.rh <= 30) items.push(['🏜️', say(PH.special.dry, 'sp.dr', {h: info.rh})]);
+  else if (info.rh != null && info.rh >= 80 && info.base >= 24) items.push(['💦', say(PH.special.humid, 'sp.hu', {h: info.rh})]);
+  if (mode.id === 'daily' && isToday(info)){
+    const dow = new Date().getDay(), arr = PH.dow[dow];
+    if (arr && (window.VSEED.length % 2 === 0)) items.push(['🗓️', say(arr, 'dow')]);
+  }
   mode.tips(info).forEach(t => { const k = t.indexOf(' '); items.push([t.slice(0, k), t.slice(k + 1)]); });
   if (info.spread >= 4) items.push(['🤔', '예보끼리 차이가 커요 · <b>한 겹 더 챙기면 안심</b>']);
   if (info.i >= 7) items.push(['📅', '먼 날짜라 예보가 바뀔 수 있어요 · 가까워지면 다시 확인해 주세요']);
@@ -463,9 +504,9 @@ function flowBrief(PP, infos){
   return out.slice(0, 5);
 }
 // 옷차림 한 줄 정리 (겉옷·상의·하의를 넘어 전체 요약)
-function totalBrief(mode, infos, cols, PP, umb){
+function totalBrief(mode, infos, cols, PP, umb, main){
   const lines = [], b = infos.map(x => x.base), mx = Math.max(...b), mn = Math.min(...b), L = j => PP ? PP[j].label : '', T = PH.total;
-  let main;
+  let mainTxt;
   if (PP && cols){
     const lv = cols.map(c => c.lv), varying = lv.some(x => x.outer !== lv[0].outer || x.top !== lv[0].top);
     const maxO = Math.max(...lv.map(x => x.outer)), O = mode.levels.outer;
@@ -474,10 +515,10 @@ function totalBrief(mode, infos, cols, PP, umb){
     const ex = [...new Set([maxO, maxO - 1, maxO - 2].filter(k => k >= 1).flatMap(k => O[k].ex).filter(n => LIGHT.test(n)))].slice(0, 2).join('·');
     const lo = b.indexOf(mn), hi = b.indexOf(mx);
     if (varying || mx - mn >= 5)
-      main = say(T.vary, 't.v', {lo: L(lo), hi: L(hi), lot: mn, hit: mx, d: mx - mn, easy: ex ? say(T.easy, 't.e', {ex}) : ''});
-    else if (mx <= 5) main = say(T.cold, 't.c');
-    else if (mn >= 26) main = say(T.hot, 't.h');
-    else main = say(T.same, 't.s', {o: O[lv[0].outer].n, t: mode.levels.top[lv[0].top].n});
+      mainTxt = say(T.vary, 't.v', {lo: L(lo), hi: L(hi), lot: mn, hit: mx, d: mx - mn, easy: ex ? say(T.easy, 't.e', {ex}) : ''});
+    else if (mx <= 5) mainTxt = say(T.cold, 't.c');
+    else if (mn >= 26) mainTxt = say(T.hot, 't.h');
+    else mainTxt = say(T.same, 't.s', {o: O[lv[0].outer].n, t: mode.levels.top[lv[0].top].n});
     let lighter = false, warmer = false;
     for (let j = 1; j < lv.length; j++){
       const a = lv[j - 1], c = lv[j];
@@ -486,14 +527,52 @@ function totalBrief(mode, infos, cols, PP, umb){
     }
   } else {
     const i = infos[0], d = i.amax - i.amin, v = {mn: i.amin, mx: i.amax, d};
-    main = d >= 5 ? say(T.sportVary, 't.sv', v) : say(T.sportFlat, 't.sf', v);
+    mainTxt = d >= 5 ? say(T.sportVary, 't.sv', v) : say(T.sportFlat, 't.sf', v);
     if (T.sport[mode.id]) lines.push(say(T.sport[mode.id], 't.sp'));
   }
   if (infos.some(x => x.w >= 7)) lines.push(say(T.wind, 't.wi'));
   if (mode.kid) lines.push(say(T.kid, 't.k'));
+  const yl = main && yesterdayLine(mode, main); if (yl) lines.unshift(yl);
   if (umb) lines.unshift({stop: umb.lv === 3, html: umb.html});
-  return `<div class="total"><div class="tt">💡 옷차림 한 줄 정리</div><div>${main}</div>` +
+  const bring = bringList(mode, infos, umb, cols);
+  return `<div class="total"><div class="tt">💡 옷차림 한 줄 정리</div><div>${mainTxt}</div>` +
+    (bring.length ? `<div class="bring"><span style="border:0;background:none;padding-left:0">🎒 챙길 것</span>${bring.map(b => `<span>${b}</span>`).join('')}</div>` : '') +
     (lines.length ? `<ul>${lines.map(l => typeof l === 'string' ? `<li>${l}</li>` : `<li class="${l.stop ? 'stop' : 'umbl'}">${l.html}</li>`).join('')}</ul>` : '') + '</div>';
+}
+// 어제 입은 기록과 비교한 한 줄
+function yesterdayLine(mode, main){
+  if (!isToday(main) || main.vsPrev == null) return null;
+  const yd = new Date(); yd.setDate(yd.getDate() - 1);
+  const r = S.records.find(x => x.date === ymd(yd) && x.mode === mode.id);
+  const n = Math.abs(main.vsPrev), Y = PH.yrec;
+  if (!r) return null;
+  const lv = levelsText(mode, r.levels);
+  if (r.rating === 'cold') return '🧣 ' + say(Y.wasCold, 'yr.c');
+  if (r.rating === 'hot') return '🌬️ ' + say(Y.wasHot, 'yr.h');
+  if (main.vsPrev <= -3) return '📉 ' + say(Y.colder, 'yr.co', {n, lv});
+  if (main.vsPrev >= 3) return '📈 ' + say(Y.warmer, 'yr.wa', {n, lv});
+  if (r.rating === 'good') return '😊 ' + say(Y.goodSame, 'yr.g', {lv});
+  return null;
+}
+// 챙길 것
+function bringList(mode, infos, umb, cols){
+  const out = [], has = s => out.includes(s), add = s => { if (!has(s)) out.push(s); };
+  const all = infos.filter(Boolean), mxB = Math.max(...all.map(x => x.base)), mnB = Math.min(...all.map(x => x.base));
+  if (umb && umb.lv >= 2) add(all.some(x => x.snow >= 0.5) ? '☂️ 우산 · 🥾 미끄럼 방지 신발' : '☂️ 우산');
+  else if (umb) add('🌂 작은 우산');
+  if (all.some(x => x.mm >= 5)) add(mode.kid ? '👢 장화·우비' : '👟 방수 신발');
+  const g = Math.max(...all.map(worstAQ));
+  if (g >= 4) add('😷 KF94 마스크'); else if (g === 3) add('😷 마스크');
+  if (all.some(x => x.uv >= 6 && x.h0 < 16)) add('🧴 선크림');
+  if (all.some(x => clearSky(x) && x.uv >= 5 && x.h0 < 16)) add('🕶️ 선글라스');
+  if (mxB >= 28) { add('💧 물'); add(mode.kid ? '🧢 모자' : '🧢 모자·양산'); }
+  if (mnB <= 0) add('🧤 장갑');
+  if (mnB <= -5) add('♨️ 핫팩');
+  if (cols && cols.some(c => c.lv.extra >= 1) && mnB <= 5) add('🧣 목도리');
+  if (all.length > 1 && mxB - mnB >= 7) add('🧥 걸칠 겉옷');
+  if (all.some(x => x.rh != null && x.rh <= 35)) add('💄 립밤·보습');
+  if (mode.kid) add('👕 여벌 옷');
+  return out.slice(0, 7);
 }
 function periodBriefing(main, infos, mode){
   const br = briefing(main, mode);
@@ -601,6 +680,10 @@ function render(){
   $('#skyLabel').textContent = sel.sky.label;
   $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PP[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
   $('#heroSub').textContent = `최저 ${info.tmin}° · 최고 ${info.tmax}°` + (info.now != null ? ` · 지금 ${info.now}°` : '');
+  const vs = info.vsPrev;
+  $('#vsY').hidden = vs == null;
+  if (vs != null) $('#vsY').textContent = (vs <= -2 ? '📉 ' : vs >= 2 ? '📈 ' : '↔️ ') +
+    say(vs <= -2 ? PH.yday.colder : vs >= 2 ? PH.yday.warmer : PH.yday.same, 'yd', {n: Math.abs(vs), pv: info.prevLabel});
   const tileHTML = (inf, label, t, on, attr) => `<button class="pbtn ${on ? 'on' : ''}" ${attr}>
       <span class="pl">${label} <small>${t}</small></span>
       ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
@@ -646,7 +729,7 @@ function render(){
       if (!lighter && (b.outer < a.outer || b.top < a.top)){ lighter = true; tips.push(`☀️ ${PP[j].label}엔 겉옷을 벗거나 가볍게 해도 돼요`); }
       else if (!warmer && (b.outer > a.outer || b.top > a.top)){ warmer = true; tips.push(`🌙 ${PP[j].label}엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기`); }
     }
-    $('#recTotal').innerHTML = totalBrief(mode, infos, cols, PP, umb);
+    $('#recTotal').innerHTML = totalBrief(mode, infos, cols, PP, umb, info);
     $('#recWhy').innerHTML = variant ? varWhy : rec.why;
     $('#recRows').innerHTML = `<div class="pgrid n${PP.length}">
       <div class="pcol plab"><div class="ph"></div>${cats.map(c => `<div class="pc"><span class="ce">${c.e}</span>${c.label}</div>`).join('')}</div>
@@ -659,7 +742,7 @@ function render(){
   } else {
     rec = recommend(mode, info.base);
     shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv}; shownTemp = info.base;
-    $('#recTotal').innerHTML = totalBrief(mode, [info], null, null, umb);
+    $('#recTotal').innerHTML = totalBrief(mode, [info], null, null, umb, info);
     $('#recWhy').innerHTML = variant ? varWhy : rec.why;
     $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
       const i = shown[c.k], L = mode.levels[c.k][i];
@@ -672,10 +755,43 @@ function render(){
   $('#recActions').hidden = !isToday(info);
   $('#woreBtn').innerHTML = P ? `👍 ${PP[period].label} 차림대로 입었어요` : '👍 이대로 입었어요';
 
+  renderLife(info, mode);
   renderForecast(W, info);
   renderRate(); renderInstall();
   trackDaily(`mode/${mode.kid ? 'kid' : mode.id}`, `추천 확인: ${mode.kid ? '아이' : mode.name}`);
   trackDaily(`learned/${rec.mine ? 'yes' : 'no'}`, rec.mine ? '내 기록 기반 추천' : '기본 추천');
+}
+
+/* ---- 생활 정보 (미세먼지·자외선·습도·일출일몰·생활지수) ---- */
+function renderLife(info, mode){
+  const el = $('#lifeCard');
+  if (!S.life){ el.hidden = true; return; }
+  el.hidden = false;
+  const g10 = aqGrade(info.pm10, 'pm10'), g25 = aqGrade(info.pm25, 'pm25'), uv = uvLevel(info.uv);
+  const tm = iso => iso ? iso.slice(11, 16) : '–';
+  const T = (k, v, s, g) => `<div class="lt"><div class="lk">${k}</div><div class="lv ${g ? 'g' + g : ''}">${v}</div><div class="ls">${s}</div></div>`;
+  let hum;
+  if (info.temp >= 22 && info.rh != null){
+    const t = info.temp, di = 0.81 * t + 0.01 * info.rh * (0.99 * t - 14.3) + 46.3;
+    const lv = di >= 80 ? [4, '매우 높음'] : di >= 75 ? [3, '높음'] : di >= 68 ? [2, '보통'] : [1, '낮음'];
+    hum = T('불쾌지수', lv[1], `습도 ${info.rh}% · ${Math.round(di)}`, lv[0]);
+  } else hum = T('습도', info.rh != null ? info.rh + '%' : '–', info.rh == null ? '' : info.rh <= 35 ? '건조해요' : info.rh >= 80 ? '습해요' : '적당해요', info.rh == null ? 0 : info.rh <= 35 ? 3 : info.rh >= 80 ? 3 : 2);
+  // 생활지수
+  const W = wx(), next = W && W.D[info.i + 1], wet = info.mm >= 0.5 || info.p >= 60, gAir = worstAQ(info);
+  const idx = [];
+  idx.push(wet ? ['👕', '빨래', '실내에서', '비 소식'] : info.rh >= 75 ? ['👕', '빨래', '보통', '잘 안 말라요'] : clearSky(info) ? ['👕', '빨래', '좋음', '햇볕 좋아요'] : ['👕', '빨래', '보통', '']);
+  const nextWet = next && (next.mm >= 1 || next.p >= 60);
+  idx.push(info.mm >= 1 || nextWet ? ['🚗', '세차', '미루세요', nextWet ? `${info.i === 0 ? '내일' : '다음 날'} 비` : '비 소식'] : (info.dust || 0) >= 80 ? ['🚗', '세차', '미루세요', '황사'] : ['🚗', '세차', '좋음', '']);
+  idx.push(gAir >= 3 ? ['🚶', '산책', '실내 추천', '미세먼지'] : wet ? ['🚶', '산책', '우산 필수', ''] : info.base <= -5 || info.base >= 31 ? ['🚶', '산책', '짧게', info.base <= -5 ? '추워요' : '더워요'] : info.base >= 8 && info.base <= 26 && info.w < 6 ? ['🚶', '산책', '좋음', ''] : ['🚶', '산책', '보통', '']);
+  const swing = info.tmax - info.tmin;
+  if (swing >= 10 || (info.base <= 0 && (info.rh ?? 100) <= 45)) idx.push(['🤧', '감기', '주의', swing >= 10 ? `일교차 ${swing}°` : '춥고 건조']);
+  el.innerHTML = `<h2 style="font-size:17px;margin-bottom:10px">🌫️ 생활 정보</h2><div class="life">
+    ${T('미세먼지', g10 ? AQ_NAME[g10] : '–', info.pm10 != null ? `PM10 ${info.pm10}㎍/㎥` : '5일 이후는 예보 없음', g10)}
+    ${T('초미세먼지', g25 ? AQ_NAME[g25] : '–', info.pm25 != null ? `PM2.5 ${info.pm25}㎍/㎥` : '', g25)}
+    ${T('자외선', uv ? uv[1] : '–', info.uv != null ? `지수 ${Math.round(info.uv)}` : '', uv ? uv[0] : 0)}
+    ${hum}
+    ${T('일출', tm(info.sunrise), '🌅', 0)}${T('일몰', tm(info.sunset), '🌇', 0)}
+  </div><div class="lidx">${idx.map(([e, k, v, r]) => `<span>${e} ${k} ${v}${r ? ` <small>· ${r}</small>` : ''}</span>`).join('')}</div>`;
 }
 
 /* ---- 예보: 시간별 / 날짜별 ---- */
@@ -868,6 +984,12 @@ function renderSettings(){
     <div class="seg2">${[1, 2, 3].map(n => `<button class="${S.fcStep[g] === n ? 'on' : ''}" data-g="${g}" data-n="${n}">${n}시간</button>`).join('')}</div></div>`).join('');
   $('#periodOpts').innerHTML = PERIODS.map(p => `<button class="chip ${S.periods.includes(p.k) ? 'on' : ''}" data-p="${p.k}">${p.label} <small>${p.t}</small></button>`).join('');
   $('#setModesName').textContent = S.modes.map(id => MODE[id].emoji).join(' ');
+  const CN = {markets: '📈 증시', economy: '🏛️ 경제·정책', bonds: '💵 채권·금리', commodities: '🛢️ 원자재', crypto: '🪙 코인', tech: '🤖 빅테크·AI', people: '👤 인물·기관', korea: '🇰🇷 국내', world: '🌏 국제'};
+  $('#newsCatOpts').innerHTML = Object.entries(CN).map(([k, l]) => `<button class="chip ${S.newsCats.includes(k) ? 'on' : ''}" data-k="${k}">${l}</button>`).join('');
+  $('#newsOrigSwitch').classList.toggle('on', !!S.newsOrig);
+  $('#lifeSwitch').classList.toggle('on', !!S.life);
+  document.querySelectorAll('#upColorOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.upColor));
+  document.querySelectorAll('#mktOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.mkt));
   $('#statsSwitch').classList.toggle('on', !!S.stats);
   $('#statsRow').hidden = !GC;
 }
@@ -916,12 +1038,20 @@ $('#kidDel').onclick = () => {
 /* ================== 탭 / 시트 ================== */
 function showView(v){
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v-'+v));
-  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  const tab = v === 'hist' ? 'home' : v;
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === tab));
+  document.querySelectorAll('.subtabs button').forEach(b => b.classList.toggle('on', b.dataset.sub === v));
   if (v === 'hist') renderHist();
   if (v === 'home') render();
   if (v === 'set') renderSettings();
+  if (v === 'news') renderNews();
+  if (v === 'market') renderMarket();
+  try { sessionStorage.setItem('view', v); } catch(e){}
   scrollTo(0,0);
 }
+document.querySelectorAll('.subtabs').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showView(b.dataset.sub); }));
+$('#nwRefresh').onclick = () => { toast('뉴스를 새로 불러와요'); renderNews(true); };
+$('#mkRefresh').onclick = () => { toast('시장 데이터를 새로 불러와요'); renderMarket(true); };
 let openSheetEl = null;
 function openSheet(id){ if (openSheetEl) openSheetEl.classList.remove('on'); openSheetEl = $(id); $('#dim').classList.add('on'); openSheetEl.classList.add('on'); }
 function closeSheet(){ if (openSheetEl) openSheetEl.classList.remove('on'); $('#dim').classList.remove('on'); openSheetEl = null; }
@@ -1293,6 +1423,10 @@ function showOnboarding(){
         <li>아이는 <b>태어난 해</b>로 여러 명 등록하고, 아이마다 따로 배워요</li>
         <li>기록은 이 폰에만 저장돼요 · <b>설정 → 백업</b>으로 옮길 수 있어요</li></ul>` },
   ];
+  onbSlides.push({ art: '<span class="onb-emo">📰 📈</span>', title: '뉴스·증시도 한 곳에',
+    body: `<ul><li>📰 <b>뉴스</b> 탭: Reuters·Bloomberg·WSJ 등 공신력 있는 경제 뉴스를 모아 <b>핵심만 요약</b>해요</li>
+      <li>📈 <b>증시</b> 탭: 세계 지수·코스피·환율·금리·코인, <b>마켓맵</b>과 <b>인기 TOP 10</b></li>
+      <li>⚙️ 설정에서 관심 분류·상승 색 등을 바꿀 수 있어요</li></ul>` });
   if (!standalone) onbSlides.push({ art: '<span class="onb-emo">📲</span>', title: '홈 화면에 추가하면 앱처럼 써요',
     body: `<div class="onb-guide">${guideHTML(installGuide(), true).replace(/^<b class="gt">.*?<\/b>/, '')}</div>` });
   onbI = 0; drawOnb(); $('#onb').hidden = false;
@@ -1321,6 +1455,16 @@ $('#onb').addEventListener('touchend', e => {
   if (dx < -50 && onbI < onbSlides.length - 1){ onbI++; drawOnb(); } else if (dx > 50 && onbI > 0){ onbI--; drawOnb(); }
 });
 $('#setHelp').onclick = showOnboarding;
+$('#newsCatOpts').onclick = e => {
+  const b = e.target.closest('[data-k]'); if (!b) return;
+  const k = b.dataset.k, on = S.newsCats.includes(k);
+  if (on && S.newsCats.length === 1) return toast('최소 하나는 있어야 해요');
+  S.newsCats = on ? S.newsCats.filter(x => x !== k) : [...S.newsCats, k]; save(); renderSettings();
+};
+$('#newsOrigRow').onclick = () => { S.newsOrig = !S.newsOrig; save(); renderSettings(); };
+$('#lifeRow').onclick = () => { S.life = !S.life; save(); renderSettings(); };
+$('#upColorOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.upColor = b.dataset.v; save(); renderSettings(); upColors(); };
+$('#mktOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.mkt = b.dataset.v; S.mapMkt = S.topMkt = b.dataset.v; save(); renderSettings(); };
 $('#stepOpts').onclick = e => {
   const b = e.target.closest('[data-g]'); if (!b) return;
   S.fcStep[b.dataset.g] = +b.dataset.n; save(); renderSettings(); render();
@@ -1365,11 +1509,14 @@ $('#periodOpts').onclick = e => {
 startAnalytics();
 render();
 dailyStats();
-const stale = () => !S.wx || Date.now() - S.wx.at > 30*60e3 || S.wx.main.daily.time[0] !== todayStr();
+const stale = () => !S.wx || Date.now() - S.wx.at > 30*60e3 || (S.wx.main.current?.time || '').slice(0, 10) !== todayStr() || !S.wx.main.hourly.relative_humidity_2m;
 if (!S.onboarded) showOnboarding();
 else if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
 let forced = false; try { forced = sessionStorage.getItem('forceRefresh') === '1'; sessionStorage.removeItem('forceRefresh'); } catch(e){}
 if (S.loc && (forced || stale())) fetchWeather().then(() => forced && toast('새로고침했어요 ✨'));
+upColors();
+let v0 = 'home'; try { v0 = (forced && sessionStorage.getItem('view')) || 'home'; } catch(e){}
+showView(v0);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){ dailyStats(); if (S.loc && stale()) fetchWeather(); }
 });
