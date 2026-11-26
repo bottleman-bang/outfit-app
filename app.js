@@ -38,7 +38,23 @@
 
 /* ================== 데이터 ================== */
 const KEY = 'outfit.v1';
-const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
+// 추천 종류: 고정 종류(일상·운동) + 아이별 종류(등록한 아이마다 하나씩)
+const BASE_MODES = MODES.filter(m => !m.template);
+const TPL = {baby: MODES.find(m => m.id === 'tpl-baby'), kid: MODES.find(m => m.id === 'tpl-kid')};
+const MODE = {};
+const kidModeId = k => 'kid-' + k.id;
+const kidAge = k => new Date().getFullYear() - k.year; // 연 나이(만 나이와 1살 차이 날 수 있음)
+function kidMode(k){
+  const age = kidAge(k), t = age <= 2 ? TPL.baby : TPL.kid, name = k.name || `${k.year}년생`;
+  return {...t, id: kidModeId(k), template: false, kid: k, name, emoji: age <= 2 ? '👶' : '🧒',
+    desc: `${k.year}년생 · ${age <= 0 ? '1살 미만' : age + '살'} · ${age <= 2 ? '아기 기준' : '어린이 기준'}`, title: `${name} 옷`};
+}
+function buildModes(kids){
+  for (const k in MODE) delete MODE[k];
+  BASE_MODES.forEach(m => MODE[m.id] = m);
+  (kids || []).forEach(k => MODE[kidModeId(k)] = kidMode(k));
+}
+const allModeIds = () => [...BASE_MODES.map(m => m.id), ...(S.kids || []).map(kidModeId)];
 // 여러 나라 기상 모델 (Open-Meteo 무료 제공). 데이터 없는 모델은 자동으로 빠져요.
 const WX_MODELS = ['ecmwf_ifs025','gfs_seamless','icon_seamless','jma_seamless','kma_seamless','metno_seamless',
   'gem_seamless','meteofrance_seamless','ukmo_seamless','cma_grapes_global'];
@@ -68,6 +84,20 @@ function load(){
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY)); } catch(e){}
   if (!s || !Array.isArray(s.records)) s = {records:[]};
+  // 예전 '아기/어린이' 종류 → 아이별 등록으로 이전
+  s.kids ||= [];
+  const y = new Date().getFullYear(), oldKid = {baby: ['아기', y - 1], kid: ['어린이', y - 5]};
+  for (const old in oldKid){
+    if ((s.modes || []).includes(old) || s.records.some(r => r.mode === old)){
+      const k = {id: old === 'baby' ? 'b1' : 'c1', name: oldKid[old][0], year: oldKid[old][1]};
+      if (!s.kids.some(x => x.id === k.id)) s.kids.push(k);
+      s.records.forEach(r => { if (r.mode === old) r.mode = kidModeId(k); });
+      s.modes = (s.modes || []).map(m => m === old ? kidModeId(k) : m);
+      if (s.mode === old) s.mode = kidModeId(k);
+      if (s.custom) delete s.custom[old];
+    }
+  }
+  buildModes(s.kids);
   s.records.forEach(r => {
     r.mode ||= 'daily';
     if (!MODE[r.mode]) return;
@@ -121,6 +151,10 @@ let toastT;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
 const WD = '일월화수목금토';
 const fmtDate = s => { const d=new Date(s+'T00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 (${WD[d.getDay()]})`; };
+const fmtRange = (a, b) => { // 오전 9시~11시 / 오전 9시~오후 6시
+  const x = fmtHour(a), y = fmtHour(b), px = x.split(' ')[0], py = y.split(' ')[0];
+  return `${x}~${px === py && /^(오전|오후)$/.test(px) ? y.slice(px.length + 1) : y}`;
+};
 const fmtHour = h => h === 0 || h === 24 ? '자정' : h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h-12}시`;
 const cur = () => MODE[S.mode];
 const whenOf = m => m.when ? (S.when[m.id] || m.when) : null;
@@ -290,7 +324,7 @@ function briefing(info, mode){
   if (info.rainHours.length){
     const s = info.rainHours[0], e = info.rainHours[info.rainHours.length - 1] + 1;
     cond = info.rainHours.length >= span * 0.7 ? `내내 ${w}가 와요` :
-      e > info.h1 ? `${fmtHour(s)}부터 ${w}가 와요` : `${fmtHour(s)}~${fmtHour(e).replace(/^(오전|오후|낮) /, '')} ${w}가 와요`;
+      e > info.h1 ? `${fmtHour(s)}부터 ${w}가 와요` : `${fmtRange(s, e)} ${w}가 와요`;
     if (snowy) cond = cond.replace('눈가', '눈이');
   } else if (info.w >= 8) cond = '바람이 강해요';
   else cond = {맑음:'맑아요', '구름 조금':'구름이 조금 있어요', '구름 많음':'구름이 많아요', 흐림:'흐려요', 안개:'안개가 껴요', '바람 강함':'바람이 강해요'}[info.sky.label] || '';
@@ -323,6 +357,22 @@ function briefing(info, mode){
   return { headline: `${feelWord(info.base)}${cond ? ', ' + cond : ''}`, items };
 }
 
+// 비·눈이 기준 이상이면 우산 알림
+// 비: 1mm 이상 또는 확률 60% 이상 → 꼭 챙기기 / 0.1mm 이상 또는 40% 이상 → 작은 우산
+// 눈: 0.5cm 이상 → 우산 + 미끄럼 주의 (3cm 이상이면 방한화)
+function umbrellaAlert(info, mode){
+  const hrs = info.rainHours || [];
+  const when = hrs.length && hrs.length < (info.h1 - info.h0 + 1) * 0.7
+    ? `${fmtRange(hrs[0], hrs[hrs.length - 1] + 1)} ` : hrs.length ? '하루 종일 ' : '';
+  const kid = mode && mode.kid ? ' · 아이는 <b>우비·장화</b>' : '';
+  if (info.snow >= 0.5)
+    return {lv: 2, html: `☃️ <b>우산 챙기세요</b> · ${when}눈 ${r1(info.snow)}cm · ${info.snow >= 3 ? '<b>미끄럼 주의, 방한화</b>' : '미끄럼 주의'}${kid}`};
+  if (info.mm >= 1 || info.p >= 60)
+    return {lv: 2, html: `☂️ <b>우산 꼭 챙기세요</b> · ${info.mm >= 0.1 ? `${when}비 ${r1(info.mm)}mm` : `비 올 확률 ${info.p}%`}${info.mm >= 10 ? ' · <b>방수 신발</b>' : ''}${kid}`};
+  if (info.mm >= 0.1 || info.p >= 40)
+    return {lv: 1, html: `🌂 <b>작은 우산 챙기면 안심</b> · ${info.mm >= 0.1 ? `${when}비 조금 (${r1(info.mm)}mm)` : `비 올 확률 ${info.p}%`}${kid}`};
+  return null;
+}
 function periodLine(inf){
   const parts = [`<b>${feelWord(inf.base)}</b>`];
   if (inf.mm >= 0.1){
@@ -442,15 +492,17 @@ function render(){
       <span class="pl">${PERIODS[j].label} <small>${PERIODS[j].h.map(h => h > 12 ? h - 12 : h).join('~')}시</small></span>
       ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
       <span class="px">${inf.mm >= 0.1 ? '💧' + r1(inf.mm) + 'mm' : inf.p >= 40 ? '💧' + inf.p + '%' : ''}${inf.w >= 5 ? ' 💨' + Math.round(inf.w) : ''}&nbsp;</span></button>`).join('');
+  const umb = umbrellaAlert(info, mode);
+  const umbHTML = umb ? `<div class="umb lv${umb.lv}">${umb.html}</div>` : '';
   if (P){
     const pb = periodBriefing(info, infos, mode);
-    $('#brief').innerHTML = `<div class="headline">${pb.headline}</div>` +
+    $('#brief').innerHTML = umbHTML + `<div class="headline">${pb.headline}</div>` +
       pb.lines.map(l => `<div class="pline"><span class="pll">${l.label}</span><span class="plt">${l.base}°</span><span>${l.text}</span></div>`).join('') +
       (pb.items.length ? '<div class="bsep"></div>' : '') +
       pb.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
   } else {
     const br = briefing(info, mode);
-    $('#brief').innerHTML = `<div class="headline">${br.headline}</div>` +
+    $('#brief').innerHTML = umbHTML + `<div class="headline">${br.headline}</div>` +
       br.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
   }
 
@@ -468,6 +520,7 @@ function render(){
     if (pm.outer < am.outer || pm.top < am.top) tips.push('☀️ 오후엔 겉옷을 벗거나 가볍게 해도 돼요');
     if (ev.outer > pm.outer || ev.top > pm.top) tips.push('🌙 저녁엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기');
     if (!tips.length && cols.every(x => CATS.every(c => x.lv[c.k] === am[c.k]))) tips.push('👍 하루 종일 같은 차림이면 돼요');
+    if (umb) tips.unshift(umb.lv === 2 ? '☂️ 우산 챙기기' + (mode.kid ? ' · 우비·장화' : '') : '🌂 작은 우산');
     $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (tips.length ? `<div class="ptips">${tips.join('<br>')}</div>` : '');
     $('#recRows').innerHTML = `<div class="pgrid">
       <div class="pcol plab"><div class="ph"></div>${cats.map(c => `<div class="pc"><span class="ce">${c.e}</span>${c.label}</div>`).join('')}</div>
@@ -480,7 +533,7 @@ function render(){
   } else {
     rec = recommend(mode, info.base);
     shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv}; shownTemp = info.base;
-    $('#recWhy').innerHTML = variant ? varWhy : rec.why;
+    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (umb ? `<div class="ptips">${umb.lv === 2 ? '☂️ 우산 챙기기' : '🌂 작은 우산'}</div>` : '');
     $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
       const i = shown[c.k], L = mode.levels[c.k][i];
       return `<div class="row"><div class="row-label"><span class="ce">${c.e}</span>${c.label}</div>
@@ -494,7 +547,7 @@ function render(){
 
   renderForecast(W, info);
   renderRate(); renderInstall();
-  trackDaily(`mode/${mode.id}`, `추천 확인: ${mode.name}`);
+  trackDaily(`mode/${mode.kid ? 'kid' : mode.id}`, `추천 확인: ${mode.kid ? '아이' : mode.name}`);
   trackDaily(`learned/${rec.mine ? 'yes' : 'no'}`, rec.mine ? '내 기록 기반 추천' : '기본 추천');
 }
 
@@ -683,12 +736,46 @@ function renderSettings(){
   $('#statsRow').hidden = !GC;
 }
 function renderModeSheet(){
-  const groups = [...new Set(MODES.map(m => m.group))];
-  $('#modeList').innerHTML = groups.map(g => `<div class="group-title">${g}</div>` + MODES.filter(m => m.group === g).map(m => `
-    <button class="mrow ${S.modes.includes(m.id)?'on':''}" data-m="${m.id}">
-      <span class="e">${m.emoji}</span><span><b>${esc(m.name)}</b><small>${esc(m.desc)}</small></span><span class="check">✓</span>
-    </button>`).join('')).join('');
+  const row = m => `<button class="mrow ${S.modes.includes(m.id)?'on':''}" data-m="${m.id}">
+      <span class="e">${m.emoji}</span><span><b>${esc(m.name)}</b><small>${esc(m.desc)}</small></span>
+      ${m.kid ? `<span class="kedit" data-k="${m.kid.id}">수정</span>` : ''}<span class="check">✓</span></button>`;
+  const groups = [...new Set(BASE_MODES.map(m => m.group))];
+  $('#modeList').innerHTML = groups.map(g => `<div class="group-title">${g}</div>` + BASE_MODES.filter(m => m.group === g).map(row).join('')).join('') +
+    `<div class="group-title">아이 <span style="font-weight:600">· 아이마다 따로 기록하고 배워요</span></div>` +
+    S.kids.map(k => row(MODE[kidModeId(k)])).join('') +
+    `<button class="mrow addkid" id="addKid"><span class="e">➕</span><span><b>아이 추가</b><small>이름(선택)과 태어난 해만 고르면 돼요</small></span></button>`;
 }
+let kidEdit = null;
+function openKidForm(k){
+  kidEdit = k ? {...k} : {id: 'k' + Date.now().toString(36), name: '', year: new Date().getFullYear() - 3, isNew: true};
+  const y = new Date().getFullYear();
+  $('#kidTitle').textContent = kidEdit.isNew ? '아이 추가' : '아이 정보 수정';
+  $('#kidName').value = kidEdit.name;
+  $('#kidYear').innerHTML = Array.from({length: 16}, (_, i) => y - i)
+    .map(v => `<option value="${v}" ${v === kidEdit.year ? 'selected' : ''}>${v}년생 (${y - v <= 0 ? '1살 미만' : (y - v) + '살'})</option>`).join('');
+  $('#kidDel').hidden = !!kidEdit.isNew;
+  openSheet('#kidSheet');
+}
+$('#kidSave').onclick = () => {
+  const k = {id: kidEdit.id, name: $('#kidName').value.trim().slice(0, 10), year: +$('#kidYear').value};
+  const i = S.kids.findIndex(x => x.id === k.id);
+  if (i >= 0) S.kids[i] = k; else { S.kids.push(k); track('kid/added', '아이 추가'); }
+  buildModes(S.kids);
+  const id = kidModeId(k);
+  if (!S.modes.includes(id)) S.modes = allModeIds().filter(x => S.modes.includes(x) || x === id);
+  S.mode = id; variant = 0; save(); renderModeSheet(); render(); renderSettings(); openSheet('#modeSheet');
+  toast(`${k.name || k.year + '년생'} 등록했어요 ✨`);
+};
+$('#kidDel').onclick = () => {
+  const name = kidEdit.name || kidEdit.year + '년생', id = kidModeId(kidEdit);
+  const n = S.records.filter(r => r.mode === id).length;
+  if (!confirm(`'${name}'을(를) 지울까요?${n ? ` 기록 ${n}개도 함께 지워져요.` : ''}`)) return;
+  S.kids = S.kids.filter(x => x.id !== kidEdit.id);
+  S.records = S.records.filter(r => r.mode !== id);
+  S.modes = S.modes.filter(x => x !== id); if (!S.modes.length) S.modes = ['daily'];
+  if (S.mode === id) S.mode = S.modes[0];
+  buildModes(S.kids); save(); renderModeSheet(); render(); renderSettings(); openSheet('#modeSheet');
+};
 
 /* ================== 탭 / 시트 ================== */
 function showView(v){
@@ -750,7 +837,7 @@ $('#logSave').onclick = () => {
   S.records = S.records.filter(r => r.id !== edit.id && !(r.date === edit.date && r.mode === edit.mode));
   S.records.push({...edit, id: edit.id || Date.now().toString(36)});
   save(); closeSheet(); toast('기록했어요 ✨'); render(); renderHist();
-  if (isNew) track(`record/${edit.mode}`, `기록 저장: ${MODE[edit.mode].name}`);
+  if (isNew) track(`record/${MODE[edit.mode].kid ? 'kid' : edit.mode}`, '기록 저장');
   if (edit.rating) track(`rating/${edit.rating}`, `평가: ${RATE[edit.rating]}`);
 };
 $('#logDel').onclick = () => {
@@ -960,11 +1047,13 @@ $('#modes').onclick = e => {
   S.mode = b.dataset.m; save(); variant = 0; render();
 };
 $('#modeList').onclick = e => {
+  const ed = e.target.closest('.kedit'); if (ed) return openKidForm(S.kids.find(k => k.id === ed.dataset.k));
+  if (e.target.closest('#addKid')) return openKidForm(null);
   const b = e.target.closest('.mrow'); if (!b) return;
   const id = b.dataset.m, on = S.modes.includes(id);
   if (on && S.modes.length === 1){ toast('최소 하나는 있어야 해요'); return; }
   if (on) S.modes = S.modes.filter(x => x !== id);
-  else { S.modes = MODES.map(m => m.id).filter(x => S.modes.includes(x) || x === id); track(`mode-added/${id}`, `종류 추가: ${MODE[id].name}`); }
+  else { S.modes = allModeIds().filter(x => S.modes.includes(x) || x === id); track(`mode-added/${MODE[id].kid ? 'kid' : id}`, '종류 추가'); }
   if (!S.modes.includes(S.mode)) S.mode = S.modes[0];
   if (!on) S.mode = id;
   save(); renderModeSheet(); render(); renderSettings();
@@ -985,7 +1074,7 @@ $('#woreBtn').onclick = () => {
   S.records.push({...newRecord(mode, shown, shownTemp, periodic(mode) ? PERIODS[period].k : null), id: Date.now().toString(36)});
   save(); render();
   toast(mode.when ? '기록했어요! 끝나고 어땠는지 알려주세요 🙌' : '기록했어요! 저녁에 어땠는지 알려주세요 🙌');
-  track(`wore-recommended/${mode.id}`, `추천대로 입음: ${mode.name}`);
+  track(`wore-recommended/${mode.kid ? 'kid' : mode.id}`, '추천대로 입음');
 };
 $('#otherBtn').onclick = () => {
   const mode = cur();
@@ -1009,7 +1098,7 @@ $('#installBanner').onclick = async e => {
 $('#guideBox').onclick = $('#installBanner').onclick;
 $('#statsRow').onclick = () => { S.stats = !S.stats; save(); renderSettings(); if (S.stats) startAnalytics(); };
 $('#exportBtn').onclick = async () => {
-  const data = JSON.stringify({app:'outfit', v:3, at:new Date().toISOString(), records:S.records, modes:S.modes}, null, 1);
+  const data = JSON.stringify({app:'outfit', v:4, at:new Date().toISOString(), records:S.records, modes:S.modes, kids:S.kids}, null, 1);
   const name = `옷차림백업_${todayStr()}.json`;
   const file = new File([data], name, {type:'application/json'});
   track('backup/export', '백업 저장');
@@ -1025,11 +1114,14 @@ $('#importFile').onchange = async e => {
   try {
     const d = JSON.parse(await f.text()); if (!Array.isArray(d.records)) throw 0;
     if (!confirm(`기록 ${d.records.length}개를 불러올까요? (같은 날짜·종류는 백업 내용으로 바뀌어요)`)) return;
+    if (Array.isArray(d.kids)) { for (const k of d.kids) if (!S.kids.some(x => x.id === k.id)) S.kids.push(k); buildModes(S.kids); }
     const recs = d.records.map(r => { r.mode ||= 'daily'; if (MODE[r.mode] && !r.levels && r.items) r.levels = itemsToLevels(MODE[r.mode], r.items, r.temp); return r; })
       .filter(r => r.levels && MODE[r.mode]);
     const keys = new Set(recs.map(r => r.date + r.mode));
     S.records = [...S.records.filter(r => !keys.has(r.date + r.mode)), ...recs];
-    if (Array.isArray(d.modes)) S.modes = MODES.map(m => m.id).filter(id => S.modes.includes(id) || d.modes.includes(id));
+    if (Array.isArray(d.kids)) for (const k of d.kids) if (!S.kids.some(x => x.id === k.id)) S.kids.push(k);
+    buildModes(S.kids);
+    if (Array.isArray(d.modes)) S.modes = allModeIds().filter(id => S.modes.includes(id) || d.modes.includes(id));
     save(); render(); toast('불러왔어요 ✨');
   } catch(err){ toast('올바른 백업 파일이 아니에요'); }
   e.target.value = '';
