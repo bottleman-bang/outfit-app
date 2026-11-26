@@ -77,6 +77,33 @@ input{font:inherit;color:inherit}
 .bi{display:flex;gap:8px;font-size:14px;line-height:1.5;padding:3px 0}
 .bi .be{flex:none;width:20px;text-align:center}
 .bi b{font-weight:800}
+.periods{display:flex;gap:6px;margin-top:12px}
+.pbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 2px 7px;border-radius:16px;background:var(--hero-glass);border:1.5px solid transparent;color:var(--hero-ink)}
+.pbtn.on{background:var(--card);border-color:hsl(var(--h) 40% 78%);color:var(--ink)}
+.pbtn .pl{font-size:13.5px;font-weight:800}
+.pbtn .pl small{font-weight:600;opacity:.6;font-size:11px}
+.pbtn b{font-size:20px;font-weight:800;line-height:1.1}
+.pbtn .px{font-size:11.5px;opacity:.75;font-weight:600;min-height:14px}
+.pline{display:flex;gap:8px;align-items:baseline;font-size:14px;line-height:1.5;padding:3px 0}
+.pll{flex:none;width:30px;font-weight:800;opacity:.7}
+.plt{flex:none;width:30px;font-weight:800}
+.bsep{height:1px;background:currentColor;opacity:.1;margin:8px 0 5px}
+.pgrid{display:flex;gap:4px;margin:2px -6px 0}
+.pcol{flex:1;display:flex;flex-direction:column;border-radius:16px;padding:0 2px 4px;border:1.5px solid transparent;min-width:0}
+.pcol.plab{flex:none;width:62px;color:var(--sub);font-size:13px;font-weight:700}
+.pcol.on{background:var(--soft);border-color:var(--acc-line)}
+.ph{height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ph b{font-size:15px}.ph span{font-size:12.5px;color:var(--sub);font-weight:700}
+.pc{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-top:1px solid var(--line);text-align:center}
+.plab .pc{align-items:flex-start;padding-left:6px;gap:0}
+.plab .pc .ce{font-size:19px}
+.pc b{font-size:14.5px;font-weight:800;line-height:1.15;word-break:keep-all}
+.pc.chg b{color:var(--acc-ink)}
+.bars.sm{height:16px;gap:2px}.bars.sm i{width:5px}
+.ptips{margin-top:8px;color:var(--ink);font-weight:600;font-size:13.5px;line-height:1.6;background:var(--soft);border-radius:12px;padding:8px 11px}
+.pdetail{margin-top:12px;font-size:13.5px;color:var(--sub);line-height:1.7;background:var(--soft);border-radius:14px;padding:10px 12px}
+.pdetail b{color:var(--ink)}
+.pdetail > b{display:block;margin-bottom:2px}
 
 /* Cards */
 .card{background:var(--card);border-radius:24px;padding:20px;margin-top:14px;box-shadow:var(--shadow)}
@@ -255,6 +282,7 @@ input{font:inherit;color:inherit}
         <div class="hero-icon"><div id="heroIcon"></div><div class="lbl" id="skyLabel"></div></div>
       </div>
       <div class="hero-sub" id="heroSub">날씨를 불러오는 중이에요</div>
+      <div class="periods" id="periods" hidden></div>
       <div class="brief" id="brief"></div>
     </section>
 

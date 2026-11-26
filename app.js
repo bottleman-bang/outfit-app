@@ -205,9 +205,13 @@ function sky(o){
 }
 
 // 선택한 날짜 + 추천 종류의 활동 시간대 정보
-function dayInfo(i, mode = cur()){
+// 일상복·아이옷은 오전/오후/저녁으로 나눠서 브리핑·추천
+const PERIODS = [{k:'am', label:'오전', h:[9,10]}, {k:'pm', label:'오후', h:[13,15]}, {k:'eve', label:'저녁', h:[18,20]}];
+const periodic = m => !m.when;
+const periodLabel = k => (PERIODS.find(p => p.k === k) || {}).label || '';
+function dayInfo(i, mode = cur(), hrs = null){
   const W = wx(); if (!W || !W.D[i]) return null;
-  const Dd = W.D[i], [h0, h1] = hoursOf(mode);
+  const Dd = W.D[i], [h0, h1] = hrs || hoursOf(mode);
   const hs = W.H.filter(x => x.date === Dd.date && x.hour >= h0 && x.hour <= h1);
   if (!hs.length) return null;
   const ag = agg(hs);
@@ -216,7 +220,7 @@ function dayInfo(i, mode = cur()){
   return { ...ag, i, date: Dd.date, hs, h0, h1, raw, pen, base: Math.round(raw - pen),
     amin: Math.round(Math.min(...hs.map(x => x.a))), amax: Math.round(Math.max(...hs.map(x => x.a))),
     chill: ag.temp - ag.a, rainHours: hs.filter(x => x.mm >= 0.1).map(x => x.hour),
-    tmin: Dd.tmin, tmax: Dd.tmax, uv: Dd.uv, sky: sky({...ag, day: 1}), D: Dd,
+    tmin: Dd.tmin, tmax: Dd.tmax, uv: Dd.uv, sky: sky({...ag, day: hrs ? ag.day : 1}), D: Dd,
     now: i === 0 ? W.nowTemp : null, models: ag.models };
 }
 const isToday = info => info && info.date === todayStr();
@@ -267,6 +271,25 @@ function briefing(info, mode){
   return { headline: `${feelWord(info.base)}${cond ? ', ' + cond : ''}`, items };
 }
 
+function periodLine(inf){
+  const parts = [`<b>${feelWord(inf.base)}</b>`];
+  if (inf.mm >= 0.1){
+    const sn = inf.snow >= 0.3;
+    parts.push(`${sn ? '눈 ' + r1(inf.snow) + 'cm' : '비 ' + r1(inf.mm) + 'mm'} · ${inf.mm >= 1 ? '<b>우산</b>' : '작은 우산'}`);
+  } else if (inf.p >= 40) parts.push(`비 확률 ${inf.p}%`);
+  else parts.push(inf.sky.label);
+  if (inf.w >= 4) parts.push(`바람 ${Math.round(inf.w)}m/s` + (inf.chill >= 1.5 ? ` (${Math.round(inf.chill)}° 더 춥게)` : ''));
+  if (inf.pen) parts.push(`비 감안 −${inf.pen}°`);
+  return parts.join(' · ');
+}
+function periodBriefing(main, infos, mode){
+  const br = briefing(main, mode);
+  const bases = infos.map(x => x.base);
+  const common = br.items.filter(([e]) => !['🌡️','🌧️','🌨️','🌂','💨'].includes(e));
+  if (Math.max(...bases) - Math.min(...bases) >= 7) common.unshift(['🌡️', '<b>일교차 커요</b> · 가장 추운 때 기준으로 입고, 벗기 쉬운 겉옷']);
+  return { headline: br.headline, lines: infos.map((inf, j) => ({label: PERIODS[j].label, base: inf.base, kind: inf.sky.kind, text: periodLine(inf)})), items: common };
+}
+
 /* ================== 추천 (두께 단계) ================== */
 function shift(mode, lv, dir){
   const o = {...lv};
@@ -309,7 +332,8 @@ function recommend(mode, t){
 }
 
 /* ================== 렌더: 오늘 ================== */
-let day = 0, variant = 0, shown = null;
+let day = 0, variant = 0, shown = null, shownTemp = null, period = null;
+function defaultPeriod(){ if (day !== 0) return 0; const h = new Date().getHours(); return h < 12 ? 0 : h < 17 ? 1 : 2; }
 
 function renderModes(){
   $('#modes').innerHTML = S.modes.map(id => { const m = MODE[id];
@@ -350,31 +374,70 @@ function render(){
   document.documentElement.style.setProperty('--h', hueOf(info.base).toFixed(0));
 
   // 히어로
-  const dt = new Date(info.date + 'T00:00');
+  const dt = new Date(info.date + 'T00:00'), P = periodic(mode);
+  const infos = P ? PERIODS.map(p => dayInfo(day, mode, p.h)) : null;
+  if (P && infos.some(x => !x)) return; // 데이터 부족
+  if (period == null || period > 2) period = defaultPeriod();
+  const sel = P ? infos[period] : info;
   $('#heroDate').textContent = `${day === 0 ? '오늘' : day === 1 ? '내일' : ''} ${dt.getMonth()+1}월 ${dt.getDate()}일 (${WD[dt.getDay()]})`.trim();
-  $('#heroIcon').innerHTML = wxIcon(info.sky.kind, 84);
-  $('#skyLabel').textContent = info.sky.label;
-  $('#bigTemp').innerHTML = `${info.base}°<small>${mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${info.pen ? ` · 비 감안 −${info.pen}°` : ''}</small>`;
+  $('#heroIcon').innerHTML = wxIcon(sel.sky.kind, 84);
+  $('#skyLabel').textContent = sel.sky.label;
+  $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PERIODS[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
   $('#heroSub').textContent = `최저 ${info.tmin}° · 최고 ${info.tmax}°` + (info.now != null ? ` · 지금 ${info.now}°` : '');
-  const br = briefing(info, mode);
-  $('#brief').innerHTML = `<div class="headline">${br.headline}</div>` +
-    br.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
+  $('#periods').hidden = !P;
+  if (P) $('#periods').innerHTML = infos.map((inf, j) => `<button class="pbtn ${j===period?'on':''}" data-p="${j}">
+      <span class="pl">${PERIODS[j].label} <small>${PERIODS[j].h.map(h => h > 12 ? h - 12 : h).join('~')}시</small></span>
+      ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
+      <span class="px">${inf.mm >= 0.1 ? '💧' + r1(inf.mm) + 'mm' : inf.p >= 40 ? '💧' + inf.p + '%' : ''}${inf.w >= 5 ? ' 💨' + Math.round(inf.w) : ''}&nbsp;</span></button>`).join('');
+  if (P){
+    const pb = periodBriefing(info, infos, mode);
+    $('#brief').innerHTML = `<div class="headline">${pb.headline}</div>` +
+      pb.lines.map(l => `<div class="pline"><span class="pll">${l.label}</span><span class="plt">${l.base}°</span><span>${l.text}</span></div>`).join('') +
+      (pb.items.length ? '<div class="bsep"></div>' : '') +
+      pb.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
+  } else {
+    const br = briefing(info, mode);
+    $('#brief').innerHTML = `<div class="headline">${br.headline}</div>` +
+      br.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
+  }
 
   // 추천
-  const rec = recommend(mode, info.base);
-  shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv};
   const dayWord = day === 0 ? '오늘' : day === 1 ? '내일' : `${dt.getDate()}일`;
   $('#recTitle').textContent = `${dayWord} ${mode.id === 'daily' ? '' : mode.emoji + ' '}${mode.title}`;
-  $('#recWhy').innerHTML = variant ? (variant > 0 ? '추천보다 <b>한 단계 따뜻하게</b> 바꿔 봤어요' : '추천보다 <b>한 단계 가볍게</b> 바꿔 봤어요') : rec.why;
-  $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
-    const lvl = mode.levels[c.k], i = shown[c.k], L = lvl[i];
-    const bars = lvl.map((_, k) => k === 0 && c.none ? '' : `<i class="${k <= i ? 'on' : ''}" style="height:${8 + k * 4}px"></i>`).join('');
-    return `<div class="row"><div class="row-label"><span class="ce">${c.e}</span>${c.label}</div>
-      <div class="lvl"><div class="lvl-top"><span class="bars">${bars}</span><b>${L.n}</b></div>
-      ${L.ex.length ? `<div class="ex">${L.ex.slice(0, 3).map(esc).join(' · ')}</div>` : c.k === 'outer' ? '<div class="ex">겉옷 없이 괜찮아요</div>' : ''}</div></div>`;
-  }).join('');
+  const varWhy = variant > 0 ? '추천보다 <b>한 단계 따뜻하게</b> 바꿔 봤어요' : '추천보다 <b>한 단계 가볍게</b> 바꿔 봤어요';
+  const barsOf = (c, i, sm) => mode.levels[c.k].map((_, k) => k === 0 && c.none ? '' : `<i class="${k <= i ? 'on' : ''}" style="height:${(sm ? 6 : 8) + k * (sm ? 3 : 4)}px"></i>`).join('');
+  let rec;
+  if (P){
+    const cols = infos.map(inf => { const r = recommend(mode, inf.base); return {r, inf, lv: variant ? shift(mode, r.lv, variant) : {...r.lv}}; });
+    rec = cols[period].r; shown = cols[period].lv; shownTemp = cols[period].inf.base;
+    const cats = CATS.filter(c => c.k !== 'extra' || cols.some(x => x.lv.extra));
+    const [am, pm, ev] = cols.map(x => x.lv), tips = [];
+    if (pm.outer < am.outer || pm.top < am.top) tips.push('☀️ 오후엔 겉옷을 벗거나 가볍게 해도 돼요');
+    if (ev.outer > pm.outer || ev.top > pm.top) tips.push('🌙 저녁엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기');
+    if (!tips.length && cols.every(x => CATS.every(c => x.lv[c.k] === am[c.k]))) tips.push('👍 하루 종일 같은 차림이면 돼요');
+    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (tips.length ? `<div class="ptips">${tips.join('<br>')}</div>` : '');
+    $('#recRows').innerHTML = `<div class="pgrid">
+      <div class="pcol plab"><div class="ph"></div>${cats.map(c => `<div class="pc"><span class="ce">${c.e}</span>${c.label}</div>`).join('')}</div>
+      ${cols.map((x, j) => `<button class="pcol ${j===period?'on':''}" data-p="${j}">
+        <div class="ph"><b>${PERIODS[j].label}</b><span>${x.inf.base}°</span></div>
+        ${cats.map(c => `<div class="pc ${j && x.lv[c.k] !== cols[j-1].lv[c.k] ? 'chg' : ''}"><span class="bars sm">${barsOf(c, x.lv[c.k], true)}</span><b>${mode.levels[c.k][x.lv[c.k]].n}</b></div>`).join('')}
+      </button>`).join('')}</div>
+      <div class="pdetail"><b>${PERIODS[period].label} 예시</b>${cats.map(c => { const L = mode.levels[c.k][shown[c.k]];
+        return `<div>${c.e} ${c.label} <b>${L.n}</b>${L.ex.length ? ' · ' + L.ex.slice(0, 3).map(esc).join(', ') : ''}</div>`; }).join('')}</div>`;
+  } else {
+    rec = recommend(mode, info.base);
+    shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv}; shownTemp = info.base;
+    $('#recWhy').innerHTML = variant ? varWhy : rec.why;
+    $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
+      const i = shown[c.k], L = mode.levels[c.k][i];
+      return `<div class="row"><div class="row-label"><span class="ce">${c.e}</span>${c.label}</div>
+        <div class="lvl"><div class="lvl-top"><span class="bars">${barsOf(c, i)}</span><b>${L.n}</b></div>
+        ${L.ex.length ? `<div class="ex">${L.ex.slice(0, 3).map(esc).join(' · ')}</div>` : c.k === 'outer' ? '<div class="ex">겉옷 없이 괜찮아요</div>' : ''}</div></div>`;
+    }).join('');
+  }
   document.querySelectorAll('#variants button').forEach(b => b.classList.toggle('on', +b.dataset.v === variant));
   $('#recActions').hidden = !isToday(info);
+  $('#woreBtn').innerHTML = P ? `👍 ${PERIODS[period].label} 차림대로 입었어요` : '👍 이대로 입었어요';
 
   renderForecast(W, info);
   renderRate(); renderInstall();
@@ -547,7 +610,7 @@ function renderHist(){
     if (mm !== mm0){ mm0 = mm; html += `<div class="month">${+mm.slice(0,4)}년 ${+mm.slice(5)}월</div>`; }
     html += `<button class="rec" data-id="${r.id}">
       <div class="tbadge" style="--th:${hueOf(r.temp).toFixed(0)}">${r.temp}°</div>
-      <div class="rec-body"><div class="rec-date">${m.emoji} ${fmtDate(r.date)}${r.when ? ' · ' + WHEN[r.when].label : ''}</div>
+      <div class="rec-body"><div class="rec-date">${m.emoji} ${fmtDate(r.date)}${r.when ? ' · ' + WHEN[r.when].label : r.period ? ' · ' + periodLabel(r.period) + ' 기준' : ''}</div>
       <div class="rec-items">${levelsText(m, r.levels)}</div></div>
       <div class="rec-rate">${r.rating ? RATE[r.rating] : '<span style="font-size:12px;color:var(--sub)">평가 전</span>'}</div></button>`;
   }
@@ -583,11 +646,11 @@ function closeSheet(){ if (openSheetEl) openSheetEl.classList.remove('on'); $('#
 
 /* ---- 기록 시트 ---- */
 let edit = null; // {id?, date, mode, when?, temp, levels, rating}
-function newRecord(mode, levels){
+function newRecord(mode, levels, temp, per){
   const info = dayInfo(0, mode);
-  const t = isToday(info) ? info.base : 15;
-  return {date: todayStr(), mode: mode.id, when: whenOf(mode), temp: isToday(info) ? info.base : '',
-    levels: levels ? {...levels} : lvFromArr(ruleOf(mode, t)), rating: null};
+  const t = temp ?? (isToday(info) ? info.base : '');
+  return {date: todayStr(), mode: mode.id, when: whenOf(mode), period: per || null, temp: t,
+    levels: levels ? {...levels} : lvFromArr(ruleOf(mode, typeof t === 'number' ? t : 15)), rating: null};
 }
 function openLog(rec){
   edit = clone(rec);
@@ -671,7 +734,9 @@ $('#locResults').addEventListener('click', e => {
 });
 
 /* ---- 이벤트 ---- */
-const selectDay = i => { day = i; variant = 0; render(); };
+const selectDay = i => { day = i; variant = 0; period = defaultPeriod(); render(); };
+$('#periods').onclick = e => { const b = e.target.closest('.pbtn'); if (b){ period = +b.dataset.p; render(); } };
+$('#recRows').onclick = e => { const b = e.target.closest('.pcol[data-p]'); if (b){ period = +b.dataset.p; render(); } };
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => showView(b.dataset.view));
 $('#days').onclick = e => { const b = e.target.closest('.dchip'); if (b) selectDay(+b.dataset.d); };
 $('#fcTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.fcTab = b.dataset.t; save(); render(); };
@@ -709,7 +774,7 @@ $('#woreBtn').onclick = () => {
   const exist = S.records.find(r => r.date === todayStr() && r.mode === mode.id);
   if (exist && !confirm(`오늘 ${mode.name} 기록이 이미 있어요. 이 옷차림으로 바꿀까요?`)) return;
   S.records = S.records.filter(r => !(r.date === todayStr() && r.mode === mode.id));
-  S.records.push({...newRecord(mode, shown), id: Date.now().toString(36)});
+  S.records.push({...newRecord(mode, shown, shownTemp, periodic(mode) ? PERIODS[period].k : null), id: Date.now().toString(36)});
   save(); render();
   toast(mode.when ? '기록했어요! 끝나고 어땠는지 알려주세요 🙌' : '기록했어요! 저녁에 어땠는지 알려주세요 🙌');
   track(`wore-recommended/${mode.id}`, `추천대로 입음: ${mode.name}`);
@@ -717,7 +782,7 @@ $('#woreBtn').onclick = () => {
 $('#otherBtn').onclick = () => {
   const mode = cur();
   const r = S.records.find(r => r.date === todayStr() && r.mode === mode.id);
-  openLog(r || newRecord(mode, shown));
+  openLog(r || newRecord(mode, shown, shownTemp, periodic(mode) ? PERIODS[period].k : null));
 };
 $('#addRecBtn').onclick = () => openLog(newRecord(histFilter !== 'all' ? MODE[histFilter] : cur()));
 $('#histList').onclick = e => { const b = e.target.closest('.rec'); if (b) openLog(S.records.find(r => r.id === b.dataset.id)); };
