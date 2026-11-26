@@ -1260,6 +1260,33 @@ $('#periodOpts').onclick = e => {
   track(`period/${on ? 'off' : 'on'}-${k}`, '시간대 설정');
 };
 
+/* ---- 끌어서 새로고침 ---- */
+(() => {
+  const el = $('#ptr'), TH = 70; let y0 = null, x0 = 0, d = 0, busy = false;
+  const blocked = () => openSheetEl || !$('#onb').hidden || busy;
+  const set = (dist, txt) => { el.style.transform = `translate(-50%, ${Math.min(dist, 100) - 60}px)`; el.querySelector('.ic').style.transform = `rotate(${dist * 3}deg)`; el.querySelector('.tx').textContent = txt; };
+  addEventListener('touchstart', e => {
+    if (blocked() || window.scrollY > 0 || e.touches.length > 1) return;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; d = 0; el.classList.add('drag');
+  }, {passive: true});
+  addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+    if (dy < 0 || Math.abs(dx) > Math.abs(dy) * 1.2 || window.scrollY > 0){ if (d < 10){ y0 = null; reset(); } return; }
+    d = dy * 0.5; set(d, d >= TH ? '놓으면 새로고침' : '당겨서 새로고침');
+  }, {passive: true});
+  addEventListener('touchend', () => {
+    if (y0 == null) return; y0 = null; el.classList.remove('drag');
+    if (d >= TH){
+      busy = true; el.classList.add('spin'); set(TH, '새로고침 중…');
+      try { sessionStorage.setItem('forceRefresh', '1'); } catch(e){}
+      track('pull-refresh', '끌어서 새로고침');
+      setTimeout(() => location.reload(), 250);
+    } else reset();
+  });
+  function reset(){ el.classList.remove('drag'); el.style.transform = ''; }
+})();
+
 /* ---- 시작 ---- */
 startAnalytics();
 render();
@@ -1267,7 +1294,8 @@ dailyStats();
 const stale = () => !S.wx || Date.now() - S.wx.at > 30*60e3 || S.wx.main.daily.time[0] !== todayStr();
 if (!S.onboarded) showOnboarding();
 else if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
-if (S.loc && stale()) fetchWeather();
+let forced = false; try { forced = sessionStorage.getItem('forceRefresh') === '1'; sessionStorage.removeItem('forceRefresh'); } catch(e){}
+if (S.loc && (forced || stale())) fetchWeather().then(() => forced && toast('새로고침했어요 ✨'));
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){ dailyStats(); if (S.loc && stale()) fetchWeather(); }
 });
