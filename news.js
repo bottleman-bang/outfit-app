@@ -59,7 +59,7 @@ async function renderNews(force){
   el.innerHTML = `
     <section class="card mbrief"><div class="tt">🔑 오늘의 핵심 <span class="badge">${N.ai && N.brief?.length ? 'AI 요약' : '자동 정리'}</span></div>
       <ul>${brief.map(l => `<li>${l}</li>`).join('')}</ul></section>
-    <section class="card"><h2>⭐ 주요 뉴스</h2><div class="why" style="margin:0 0 6px">여러 매체가 다루고 시장에 영향이 큰 순서예요 · 누르면 요약이 펼쳐져요</div>
+    <section class="card"><h2>⭐ 주요 뉴스</h2>
       ${top.map((x, i) => topItem(x, i === 0)).join('') || '<div class="empty" style="padding:20px">관심 분류에 맞는 주요 뉴스가 없어요</div>'}</section>
     <section class="card"><h2>🗂️ 분류별 뉴스</h2>
       <div class="hscroll-row" id="nwTabs" style="margin-bottom:6px">${[['all', '전체'], ...cats.map(c => [c, `${CAT_E[c]} ${N.catNames[c]}`])].map(([k, l]) =>
