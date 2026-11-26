@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오늘 뭐 입지</title>
+<meta name="theme-color" content="#FF8A5B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="뭐입지">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#FFF8F3; --card:#FFFFFF; --ink:#2B2522; --sub:#8A7F78; --line:#F0E6DF;
+  --accent:#FF8A5B; --accent-ink:#fff; --chip:#FFF1EA; --chip-on:#FF8A5B;
+  --hue:30; --shadow:0 6px 24px rgba(80,40,20,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#1A1715; --card:#26211E; --ink:#F5EEE9; --sub:#A89D96; --line:#3A332E;
+    --chip:#352D28; --shadow:0 6px 24px rgba(0,0,0,.35); }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  padding:env(safe-area-inset-top) 0 calc(78px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+.wrap{max-width:480px;margin:0 auto;padding:12px 16px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 10px}
+.place{font-size:17px;font-weight:700;display:flex;gap:6px;align-items:center;padding:6px 10px;margin-left:-10px;border-radius:12px}
+.place:active{background:var(--chip)}
+.icon-btn{width:40px;height:40px;border-radius:12px;font-size:20px;display:grid;place-items:center}
+.icon-btn:active{background:var(--chip)}
+
+/* Hero */
+.hero{border-radius:28px;padding:20px 22px 22px;color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,hsl(var(--hue) 75% 62%),hsl(calc(var(--hue) + 18) 70% 54%));box-shadow:var(--shadow)}
+.daytabs{display:inline-flex;background:rgba(255,255,255,.22);border-radius:999px;padding:3px}
+.daytabs button{padding:6px 14px;border-radius:999px;font-weight:700;font-size:14px;color:#fff;opacity:.85}
+.daytabs button.on{background:#fff;color:hsl(var(--hue) 70% 40%);opacity:1}
+.hero-main{display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px}
+.big{font-size:84px;font-weight:800;letter-spacing:-4px;line-height:.95}
+.big small{font-size:18px;font-weight:700;letter-spacing:0;display:block;opacity:.9;margin-bottom:6px}
+.wx{font-size:64px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.15))}
+.hero-sub{margin-top:12px;font-size:15px;font-weight:600;opacity:.95}
+.hints{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.hint{background:rgba(255,255,255,.24);padding:6px 11px;border-radius:999px;font-size:13.5px;font-weight:700}
+
+/* Recommendation */
+.card{background:var(--card);border-radius:24px;padding:20px;margin-top:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 4px;font-size:20px;font-weight:800;letter-spacing:-.3px}
+.why{color:var(--sub);font-size:14px;margin-bottom:14px;line-height:1.45}
+.row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row-label{width:52px;flex:none;color:var(--sub);font-size:13.5px;font-weight:700;padding-top:9px}
+.items{display:flex;flex-wrap:wrap;gap:8px}
+.item{background:var(--chip);border-radius:14px;padding:8px 13px;font-size:18px;font-weight:700;display:flex;gap:6px;align-items:center}
+.item .e{font-size:22px}
+.actions{display:flex;gap:8px;margin-top:16px}
+.btn{flex:1;padding:15px 10px;border-radius:16px;font-weight:800;font-size:16px;background:var(--chip)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn:active{transform:scale(.98)}
+.alts{display:flex;gap:8px;overflow-x:auto;margin:14px -20px 0;padding:0 20px 2px;scrollbar-width:none}
+.alts::-webkit-scrollbar{display:none}
+.alt{flex:none;border:2px solid var(--line);border-radius:16px;padding:10px 12px;text-align:left;max-width:200px;font-size:13.5px}
+.alt.on{border-color:var(--accent)}
+.alt b{display:block;font-size:12.5px;color:var(--sub);margin-bottom:3px}
+.alt span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600}
+
+.rate h2{font-size:18px}
+.rate-btns{display:flex;gap:8px;margin-top:12px}
+.rate-btns button{flex:1;background:var(--chip);border-radius:16px;padding:12px 4px;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.rate-btns button .e{font-size:30px}
+.rate-btns button.on{background:var(--accent);color:#fff}
+
+.banner{background:var(--chip);border-radius:18px;padding:14px 16px;margin-top:14px;font-size:14px;line-height:1.5;position:relative}
+.banner b{font-size:15px}
+.banner .x{position:absolute;right:8px;top:6px;font-size:18px;color:var(--sub);padding:4px 8px}
+
+/* History */
+.stat{display:flex;gap:10px;margin-top:4px}
+.stat div{flex:1;background:var(--card);border-radius:18px;padding:14px;box-shadow:var(--shadow)}
+.stat b{font-size:24px;display:block}
+.stat span{color:var(--sub);font-size:13px;font-weight:600}
+.month{font-weight:800;color:var(--sub);font-size:14px;margin:22px 4px 8px}
+.rec{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:18px;padding:12px 14px;margin-bottom:8px;width:100%;text-align:left;box-shadow:var(--shadow)}
+.tbadge{width:52px;height:52px;flex:none;border-radius:14px;color:#fff;font-weight:800;font-size:19px;display:grid;place-items:center}
+.rec-body{flex:1;min-width:0}
+.rec-date{font-size:13px;color:var(--sub);font-weight:600}
+.rec-items{font-weight:700;font-size:15px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-rate{font-size:24px}
+.empty{text-align:center;color:var(--sub);padding:50px 20px;line-height:1.6}
+.empty .e{font-size:48px}
+
+/* Settings */
+.set-item{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 4px;border-top:1px solid var(--line);font-size:16px;font-weight:600;text-align:left}
+.set-item:first-of-type{border-top:0}
+.set-item span{color:var(--sub);font-size:14px;font-weight:500}
+.help{font-size:14.5px;line-height:1.65;color:var(--ink)}
+.help ol{padding-left:20px;margin:6px 0 12px}
+
+/* Tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+  display:flex;justify-content:center;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:5}
+.tabbar button{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--sub);padding:4px}
+.tabbar button .e{font-size:22px;filter:grayscale(1);opacity:.6}
+.tabbar button.on{color:var(--ink)}
+.tabbar button.on .e{filter:none;opacity:1}
+.view{display:none}.view.on{display:block}
+
+/* Sheet */
+.dim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10;display:none}
+.dim.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;background:var(--bg);border-radius:26px 26px 0 0;max-height:92vh;overflow-y:auto;
+  transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);padding:8px 0 calc(20px + env(safe-area-inset-bottom))}
+.sheet.on{transform:none}
+.sheet .wrap{padding-top:4px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 10px}
+.sheet h3{font-size:21px;font-weight:800;margin:0 0 14px}
+.field{display:flex;gap:10px;margin-bottom:14px}
+.field label{flex:1;background:var(--card);border-radius:16px;padding:10px 14px;font-size:12.5px;color:var(--sub);font-weight:700}
+.field input{display:block;width:100%;border:0;background:none;font-size:18px;font-weight:700;padding:4px 0 0;outline:none}
+.cat{margin-bottom:14px}
+.cat-title{font-weight:800;font-size:15px;margin:0 2px 8px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{background:var(--card);border:2px solid var(--line);border-radius:999px;padding:8px 13px;font-size:15px;font-weight:700}
+.chip.on{background:var(--chip-on);border-color:var(--chip-on);color:#fff}
+.chip.add{border-style:dashed;color:var(--sub)}
+.search{width:100%;padding:14px 16px;border-radius:16px;border:2px solid var(--line);background:var(--card);font-size:17px;outline:none}
+.search:focus{border-color:var(--accent)}
+.result{display:block;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid var(--line);font-size:16px;font-weight:600}
+.result span{color:var(--sub);font-size:13.5px;font-weight:500;margin-left:6px}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#2B2522;color:#fff;
+  padding:12px 18px;border-radius:14px;font-weight:700;font-size:14.5px;opacity:0;transition:.25s;z-index:20;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.skeleton{opacity:.6}
+</style>
+</head>
+<body>
+
+<!-- ============ 오늘 ============ -->
+<main class="view on" id="v-home">
+  <div class="wrap">
+    <div class="top">
+      <button class="place" id="placeBtn">📍 <span id="placeName">위치 확인 중…</span> <span style="opacity:.5">▾</span></button>
+      <button class="icon-btn" id="refreshBtn" aria-label="새로고침">↻</button>
+    </div>
+
+    <section class="hero" id="hero">
+      <div class="daytabs"><button class="on" data-day="0">오늘</button><button data-day="1">내일</button></div>
+      <div class="hero-main">
+        <div class="big" id="bigTemp"><small>체감온도</small>–°</div>
+        <div class="wx" id="wxIcon">⛅</div>
+      </div>
+      <div class="hero-sub" id="heroSub">날씨를 불러오는 중이에요</div>
+      <div class="hints" id="hints"></div>
+    </section>
+
+    <section class="card rate" id="rateCard" hidden></section>
+
+    <section class="card" id="recCard">
+      <h2 id="recTitle">오늘은 이렇게 입어요</h2>
+      <div class="why" id="recWhy"></div>
+      <div id="recRows"></div>
+      <div class="actions">
+        <button class="btn primary" id="woreBtn">👍 이대로 입었어요</button>
+        <button class="btn" id="otherBtn">✏️ 다르게 입었어요</button>
+      </div>
+      <div class="alts" id="alts"></div>
+    </section>
+
+    <div class="banner" id="installBanner" hidden></div>
+  </div>
+</main>
+
+<!-- ============ 기록 ============ -->
+<main class="view" id="v-hist">
+  <div class="wrap">
+    <div class="top"><b style="font-size:24px">옷차림 기록</b>
+      <button class="icon-btn" id="addRecBtn" aria-label="기록 추가" style="font-size:26px">＋</button></div>
+    <div class="stat" id="stats"></div>
+    <div id="histList"></div>
+  </div>
+</main>
+
+<!-- ============ 설정 ============ -->
+<main class="view" id="v-set">
+  <div class="wrap">
+    <div class="top"><b style="font-size:24px">설정</b></div>
+    <div class="card" style="margin-top:4px">
+      <button class="set-item" id="setLoc">📍 위치 <span id="setLocName"></span></button>
+      <button class="set-item" id="setGps">🛰️ 현재 위치로 자동 설정</button>
+    </div>
+    <div class="card">
+      <h2 style="font-size:17px;margin-bottom:6px">💾 백업</h2>
+      <div class="why" style="margin:0">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 앱을 지우기 전에 백업해 두세요.</div>
+      <button class="set-item" id="exportBtn">백업 파일 저장하기 <span>⬇︎</span></button>
+      <button class="set-item" id="importBtn">백업 파일 불러오기 <span>⬆︎</span></button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="card help">
+      <h2 style="font-size:17px">📲 홈 화면에 추가하는 법</h2>
+      <b>아이폰</b>
+      <ol><li><b>Safari</b>로 이 페이지를 열어요</li><li>아래쪽 <b>공유 버튼(□↑)</b>을 눌러요</li><li><b>홈 화면에 추가</b>를 누르면 끝!</li></ol>
+      <b>안드로이드</b>
+      <ol><li><b>Chrome</b>으로 이 페이지를 열어요</li><li>오른쪽 위 <b>⋮ 메뉴</b>를 눌러요</li><li><b>홈 화면에 추가</b> (또는 <b>앱 설치</b>)를 눌러요</li></ol>
+    </div>
+    <div class="card help">
+      <h2 style="font-size:17px">🧠 추천은 어떻게 하나요?</h2>
+      처음에는 일반적인 기온별 옷차림을 추천해요. 입은 옷을 기록하고 <b>🥶 추웠어 / 😊 딱 좋아 / 🥵 더웠어</b>를 남길수록,
+      비슷한 체감온도에서 <b>딱 좋았던 옷</b>을 우선 추천해요. 추웠던 옷은 더 따뜻한 날에, 더웠던 옷은 더 추운 날에 추천돼요.
+    </div>
+    <div class="card"><button class="set-item" id="resetBtn" style="color:#E0533D">모든 기록 지우기</button></div>
+    <p style="text-align:center;color:var(--sub);font-size:12px;margin:20px 0">날씨 정보: Open-Meteo</p>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <button class="on" data-view="home"><span class="e">👗</span>오늘</button>
+  <button data-view="hist"><span class="e">📒</span>기록</button>
+  <button data-view="set"><span class="e">⚙️</span>설정</button>
+</nav>
+
+<div class="dim" id="dim"></div>
+
+<!-- 기록 시트 -->
+<div class="sheet" id="logSheet"><div class="grab"></div><div class="wrap">
+  <h3 id="logTitle">오늘 입은 옷</h3>
+  <div class="field">
+    <label>날짜<input type="date" id="logDate"></label>
+    <label>체감온도 (°C)<input type="number" inputmode="decimal" id="logTemp" step="1"></label>
+  </div>
+  <div id="logCats"></div>
+  <div class="cat"><div class="cat-title">입어보니 어땠어요? <span style="color:var(--sub);font-weight:600;font-size:13px">(나중에 해도 돼요)</span></div>
+    <div class="rate-btns" id="logRate">
+      <button data-r="cold"><span class="e">🥶</span>추웠어</button>
+      <button data-r="good"><span class="e">😊</span>딱 좋아</button>
+      <button data-r="hot"><span class="e">🥵</span>더웠어</button>
+    </div>
+  </div>
+  <div class="actions"><button class="btn" id="logDel" hidden style="flex:.4;color:#E0533D">삭제</button><button class="btn primary" id="logSave">저장하기</button></div>
+</div></div>
+
+<!-- 위치 시트 -->
+<div class="sheet" id="locSheet"><div class="grab"></div><div class="wrap">
+  <h3>위치 바꾸기</h3>
+  <button class="btn" id="gpsBtn" style="width:100%;margin-bottom:12px">🛰️ 현재 위치 사용</button>
+  <input class="search" id="locSearch" placeholder="도시 이름 검색 (예: 서울, Tokyo, Paris)" autocomplete="off">
+  <div id="locResults" style="min-height:200px"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================== 데이터 ================== */
+const KEY = 'outfit.v1';
+const CATS = [
+  {k:'outer',  label:'아우터'},
+  {k:'top',    label:'상의'},
+  {k:'bottom', label:'하의'},
+  {k:'extra',  label:'소품'},
+];
+const PRESET = {
+  outer:  ['롱패딩','숏패딩','경량패딩','코트','트렌치코트','자켓','가죽자켓','가디건','야상'],
+  top:    ['민소매','반팔','긴팔','셔츠','블라우스','맨투맨','후드','니트','히트텍'],
+  bottom: ['반바지','치마','원피스','청바지','슬랙스','면바지','레깅스','기모바지'],
+  extra:  ['목도리','장갑','모자','스타킹','부츠','운동화','샌들','양산','핫팩'],
+};
+const EMOJI = {롱패딩:'🧥',숏패딩:'🧥',경량패딩:'🧥',코트:'🧥',트렌치코트:'🧥',자켓:'🧥',가죽자켓:'🧥',가디건:'🧶',야상:'🧥',
+  민소매:'🎽',반팔:'👕',긴팔:'👚',셔츠:'👔',블라우스:'👚',맨투맨:'👕',후드:'👕',니트:'🧶',히트텍:'🔥',
+  반바지:'🩳',치마:'👗',원피스:'👗',청바지:'👖',슬랙스:'👖',면바지:'👖',레깅스:'🦵',기모바지:'👖',
+  목도리:'🧣',장갑:'🧤',모자:'🧢',스타킹:'🦵',부츠:'👢',운동화:'👟',샌들:'👡',양산:'⛱️',핫팩:'♨️',우산:'☂️'};
+// 기본 기온별 옷차림 (체감온도 하한, 옷)
+const DEFAULTS = [
+  [28, {outer:[], top:['민소매','반팔'], bottom:['반바지','원피스'], extra:['샌들']}],
+  [23, {outer:[], top:['반팔','셔츠'], bottom:['면바지','치마'], extra:['운동화']}],
+  [20, {outer:['가디건'], top:['긴팔','블라우스'], bottom:['면바지','청바지'], extra:[]}],
+  [17, {outer:['가디건'], top:['맨투맨','니트'], bottom:['청바지'], extra:[]}],
+  [12, {outer:['자켓','트렌치코트'], top:['니트','셔츠'], bottom:['청바지','슬랙스'], extra:['스타킹']}],
+  [9,  {outer:['트렌치코트'], top:['니트'], bottom:['청바지','슬랙스'], extra:['스타킹']}],
+  [5,  {outer:['코트'], top:['히트텍','니트'], bottom:['기모바지','청바지'], extra:['부츠']}],
+  [-99,{outer:['롱패딩'], top:['히트텍','니트'], bottom:['기모바지'], extra:['목도리','장갑']}],
+];
+
+function load(){
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.records) return s; } catch(e){}
+  return {records:[], custom:{outer:[],top:[],bottom:[],extra:[]}, loc:null, wx:null, hideInstall:false};
+}
+let S = load();
+S.custom ||= {outer:[],top:[],bottom:[],extra:[]};
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ toast('저장 공간이 부족해요'); } }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+/* ================== 유틸 ================== */
+const $ = s => document.querySelector(s);
+const ymd = d => { const z = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; };
+const todayStr = () => ymd(new Date());
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hueOf = t => 215 + (Math.max(-10, Math.min(35, t)) + 10) / 45 * 165; // 파랑→보라→분홍→주황
+const tColor = t => `hsl(${hueOf(t)} 75% 55%)`;
+const emo = n => EMOJI[n] || '•';
+const RATE = {cold:'🥶', good:'😊', hot:'🥵'};
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
+const allItems = o => CATS.flatMap(c => o[c.k] || []);
+const outfitKey = o => CATS.map(c => [...(o[c.k]||[])].sort().join(',')).join('|');
+const fmtDate = s => { const d=new Date(s+'T00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 (${'일월화수목금토'[d.getDay()]})`; };
+
+/* ================== 날씨 ================== */
+const WX = c => c===0?['☀️','맑음']:c<=2?['🌤️','구름 조금']:c===3?['☁️','흐림']:c<=48?['🌫️','안개']:c<=57?['🌦️','이슬비']:
+  c<=67?['🌧️','비']:c<=77?['🌨️','눈']:c<=82?['🌧️','소나기']:c<=86?['🌨️','눈']:['⛈️','뇌우'];
+let day = 0;
+
+async function fetchWeather(){
+  if (!S.loc) return;
+  const {lat, lon} = S.loc;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+    `&current=temperature_2m,apparent_temperature,weather_code`+
+    `&hourly=apparent_temperature,precipitation_probability`+
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max`+
+    `&timezone=auto&forecast_days=2`;
+  try {
+    const r = await fetch(url); if (!r.ok) throw 0;
+    S.wx = {data: await r.json(), at: Date.now()}; save();
+  } catch(e){ toast(S.wx ? '오프라인이에요 · 마지막 날씨를 보여줘요' : '날씨를 불러오지 못했어요'); }
+  render();
+}
+
+// 기준 체감온도: 해당 날짜 08~20시 체감온도 평균 (밖에 있는 시간 기준)
+function dayInfo(i){
+  const d = S.wx && S.wx.data; if (!d) return null;
+  const date = d.daily.time[i]; if (!date) return null;
+  const hrs = d.hourly.time.map((t,k)=>({t, a:d.hourly.apparent_temperature[k], p:d.hourly.precipitation_probability[k]}))
+    .filter(h => h.t.startsWith(date) && +h.t.slice(11,13) >= 8 && +h.t.slice(11,13) <= 20);
+  const base = Math.round(hrs.reduce((s,h)=>s+h.a,0) / (hrs.length||1));
+  const amin = Math.round(Math.min(...hrs.map(h=>h.a))), amax = Math.round(Math.max(...hrs.map(h=>h.a)));
+  return { date, base, amin, amax, code:d.daily.weather_code[i],
+    tmin:Math.round(d.daily.temperature_2m_min[i]), tmax:Math.round(d.daily.temperature_2m_max[i]),
+    rain:d.daily.precipitation_probability_max[i] ?? 0, uv:d.daily.uv_index_max?.[i] ?? 0,
+    now: i===0 ? Math.round(d.current.temperature_2m) : null };
+}
+
+/* ================== 추천 ================== */
+function defaultOutfit(t){ return DEFAULTS.find(([min]) => t >= min)[1]; }
+
+function recommend(t){
+  const now = Date.now();
+  const cands = S.records.filter(r => allItems(r.items).length && typeof r.temp === 'number').map(r => {
+    const adj = r.temp + (r.rating==='cold' ? 3 : r.rating==='hot' ? -3 : 0); // 추웠으면 더 따뜻한 날용, 더웠으면 더 추운 날용
+    const d = Math.abs(adj - t);
+    const age = (now - new Date(r.date+'T12:00')) / 864e5;
+    const score = d + Math.min(age, 365)/120 + (r.rating ? 0 : 0.8) - (r.rating==='good' ? 0.5 : 0);
+    return {r, d, score};
+  }).filter(c => c.d <= 4).sort((a,b) => a.score - b.score);
+
+  const out = [], seen = new Set();
+  for (const c of cands){
+    const k = outfitKey(c.r.items); if (seen.has(k)) continue; seen.add(k);
+    const r = c.r;
+    let why = `${fmtDate(r.date)} 체감 ${r.temp}°에 입었던 옷이에요`;
+    if (r.rating==='good') why = `${fmtDate(r.date)} 체감 ${r.temp}°에 입고 <b>딱 좋았던</b> 옷이에요 😊`;
+    if (r.rating==='cold') why = `${fmtDate(r.date)} 체감 ${r.temp}°에 추웠던 옷이라, 오늘처럼 더 따뜻한 날 딱이에요`;
+    if (r.rating==='hot')  why = `${fmtDate(r.date)} 체감 ${r.temp}°에 더웠던 옷이라, 오늘처럼 더 쌀쌀한 날 딱이에요`;
+    out.push({items:r.items, why, label:fmtDate(r.date).replace(/ \(.\)/,''), mine:true});
+    if (out.length >= 4) break;
+  }
+  const def = defaultOutfit(t);
+  if (!seen.has(outfitKey(def)))
+    out.push({items:def, why: out.length ? '일반적인 기온별 옷차림이에요' :
+      '일반적인 기온별 옷차림이에요. 입은 옷을 기록하면 점점 맞춤 추천이 돼요!', label:'기본 추천'});
+  return out;
+}
+
+/* ================== 렌더 ================== */
+let pick = 0, recs = [];
+function render(){
+  $('#placeName').textContent = S.loc ? S.loc.name : '위치를 설정해 주세요';
+  $('#setLocName').textContent = S.loc ? S.loc.name : '없음';
+  document.querySelectorAll('.daytabs button').forEach(b => b.classList.toggle('on', +b.dataset.day === day));
+
+  const info = dayInfo(day);
+  if (!info){
+    $('#bigTemp').innerHTML = '<small>체감온도</small>–°';
+    $('#heroSub').textContent = S.loc ? '날씨를 불러오는 중이에요' : '위에서 위치를 설정해 주세요';
+    $('#recCard').hidden = true; renderRate(); renderInstall(); return;
+  }
+  $('#recCard').hidden = false;
+  document.documentElement.style.setProperty('--hue', hueOf(info.base));
+  const [ic, wxName] = WX(info.code);
+  $('#bigTemp').innerHTML = `<small>${day ? '내일' : '오늘'} 체감온도</small>${info.base}°`;
+  $('#wxIcon').textContent = ic;
+  $('#heroSub').textContent = `${wxName} · 최저 ${info.tmin}° / 최고 ${info.tmax}°` + (info.now!=null ? ` · 지금 ${info.now}°` : '');
+  const hints = [];
+  if (info.rain >= 50) hints.push(`☂️ 비 올 확률 ${info.rain}% · 우산 챙기기`);
+  else if (info.rain >= 30) hints.push(`🌂 비 소식 ${info.rain}% · 작은 우산`);
+  if (info.amax - info.amin >= 8) hints.push(`🌡️ 체감 ${info.amin}°~${info.amax}° · 일교차 커요, 겉옷 챙기기`);
+  if (info.uv >= 7) hints.push('🧴 자외선 강해요');
+  $('#hints').innerHTML = hints.map(h => `<span class="hint">${h}</span>`).join('');
+
+  recs = recommend(info.base); if (pick >= recs.length) pick = 0;
+  const rec = recs[pick];
+  $('#recTitle').textContent = day ? '내일은 이렇게 입어요' : '오늘은 이렇게 입어요';
+  $('#recWhy').innerHTML = rec.why;
+  $('#recRows').innerHTML = CATS.filter(c => (rec.items[c.k]||[]).length).map(c => `
+    <div class="row"><div class="row-label">${c.label}</div><div class="items">
+      ${rec.items[c.k].map(n => `<span class="item"><span class="e">${emo(n)}</span>${esc(n)}</span>`).join('')}
+    </div></div>`).join('');
+  $('#woreBtn').hidden = day !== 0; $('#otherBtn').hidden = day !== 0;
+  $('#alts').innerHTML = recs.length > 1 ? recs.map((r,i) => `
+    <button class="alt ${i===pick?'on':''}" data-i="${i}"><b>${r.mine ? '💛 ' : '📘 '}${esc(r.label)}</b>
+    <span>${allItems(r.items).map(esc).join(' · ')}</span></button>`).join('') : '';
+  renderRate(); renderInstall();
+}
+
+function renderRate(){
+  const cutoff = ymd(new Date(Date.now() - 3*864e5));
+  const r = S.records.filter(r => !r.rating && r.date >= cutoff && r.date <= todayStr()).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const el = $('#rateCard');
+  if (!r || day !== 0){ el.hidden = true; return; }
+  // 오늘 기록은 오후 4시 이후에만 평가 요청
+  if (r.date === todayStr() && new Date().getHours() < 16){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<h2>${r.date === todayStr() ? '오늘' : fmtDate(r.date)} 옷차림 어땠어요?</h2>
+    <div class="why" style="margin:0">${allItems(r.items).map(esc).join(' · ')} (체감 ${r.temp}°)</div>
+    <div class="rate-btns">${Object.entries({cold:'추웠어',good:'딱 좋아',hot:'더웠어'}).map(([k,v]) =>
+      `<button data-r="${k}" data-id="${r.id}"><span class="e">${RATE[k]}</span>${v}</button>`).join('')}</div>`;
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
+function renderInstall(){
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const el = $('#installBanner');
+  if (standalone || S.hideInstall){ el.hidden = true; return; }
+  el.hidden = false;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  el.innerHTML = `<button class="x" id="hideInstall">✕</button><b>📲 홈 화면에 추가하면 앱처럼 쓸 수 있어요</b><br>` +
+    (deferredPrompt ? `<button class="btn primary" id="installNow" style="margin-top:10px;width:100%">홈 화면에 추가</button>` :
+     ios ? 'Safari 아래쪽 <b>공유 버튼(□↑)</b> → <b>홈 화면에 추가</b>' : 'Chrome 오른쪽 위 <b>⋮</b> → <b>홈 화면에 추가</b>');
+}
+
+function renderHist(){
+  const recs = [...S.records].sort((a,b) => b.date.localeCompare(a.date));
+  const rated = recs.filter(r => r.rating);
+  const good = rated.filter(r => r.rating === 'good').length;
+  $('#stats').innerHTML = `<div><b>${recs.length}</b><span>기록한 날</span></div>
+    <div><b>${rated.length ? Math.round(good / rated.length * 100) + '%' : '–'}</b><span>딱 좋았던 날</span></div>`;
+  if (!recs.length){
+    $('#histList').innerHTML = `<div class="empty"><div class="e">👗</div>아직 기록이 없어요.<br>오늘 입은 옷을 기록해 보세요!</div>`; return;
+  }
+  let html = '', m = '';
+  for (const r of recs){
+    const mm = r.date.slice(0,7);
+    if (mm !== m){ m = mm; html += `<div class="month">${+mm.slice(0,4)}년 ${+mm.slice(5)}월</div>`; }
+    html += `<button class="rec" data-id="${r.id}">
+      <div class="tbadge" style="background:${tColor(r.temp)}">${r.temp}°</div>
+      <div class="rec-body"><div class="rec-date">${fmtDate(r.date)}</div>
+      <div class="rec-items">${allItems(r.items).map(esc).join(' · ') || '–'}</div></div>
+      <div class="rec-rate">${r.rating ? RATE[r.rating] : '<span style="font-size:12px;color:var(--sub)">평가 전</span>'}</div></button>`;
+  }
+  $('#histList').innerHTML = html;
+}
+
+/* ================== 탭 / 시트 ================== */
+function showView(v){
+  document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v-'+v));
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  if (v === 'hist') renderHist();
+  if (v === 'home') render();
+  scrollTo(0,0);
+}
+let openSheetEl = null;
+function openSheet(id){ openSheetEl = $(id); $('#dim').classList.add('on'); openSheetEl.classList.add('on'); }
+function closeSheet(){ if (openSheetEl) openSheetEl.classList.remove('on'); $('#dim').classList.remove('on'); openSheetEl = null; }
+
+/* ---- 기록 시트 ---- */
+let edit = null; // {id?, date, temp, items, rating}
+function openLog(rec){
+  edit = rec ? JSON.parse(JSON.stringify(rec)) : {date:todayStr(), temp: dayInfo(0)?.base ?? '', items:{outer:[],top:[],bottom:[],extra:[]}, rating:null};
+  $('#logTitle').textContent = rec?.id ? '기록 수정' : '입은 옷 기록';
+  $('#logDate').value = edit.date; $('#logTemp').value = edit.temp;
+  $('#logDel').hidden = !rec?.id;
+  renderLogCats(); renderLogRate(); openSheet('#logSheet');
+}
+function renderLogCats(){
+  $('#logCats').innerHTML = CATS.map(c => {
+    const list = [...new Set([...PRESET[c.k], ...S.custom[c.k], ...edit.items[c.k]])];
+    return `<div class="cat"><div class="cat-title">${c.label}</div><div class="chips">
+      ${list.map(n => `<button class="chip ${edit.items[c.k].includes(n)?'on':''}" data-c="${c.k}" data-n="${esc(n)}">${emo(n)} ${esc(n)}</button>`).join('')}
+      <button class="chip add" data-add="${c.k}">＋ 직접 입력</button></div></div>`;
+  }).join('');
+}
+function renderLogRate(){ document.querySelectorAll('#logRate button').forEach(b => b.classList.toggle('on', b.dataset.r === edit.rating)); }
+
+$('#logCats').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.add){
+    const n = (prompt(`추가할 ${CATS.find(c=>c.k===b.dataset.add).label} 이름`) || '').trim();
+    if (!n) return;
+    if (!S.custom[b.dataset.add].includes(n) && !PRESET[b.dataset.add].includes(n)) { S.custom[b.dataset.add].push(n); save(); }
+    if (!edit.items[b.dataset.add].includes(n)) edit.items[b.dataset.add].push(n);
+    renderLogCats(); return;
+  }
+  const arr = edit.items[b.dataset.c], n = b.dataset.n, i = arr.indexOf(n);
+  i >= 0 ? arr.splice(i,1) : arr.push(n);
+  b.classList.toggle('on');
+});
+$('#logRate').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  edit.rating = edit.rating === b.dataset.r ? null : b.dataset.r; renderLogRate();
+});
+$('#logSave').onclick = () => {
+  edit.date = $('#logDate').value || todayStr();
+  const t = parseFloat($('#logTemp').value);
+  if (isNaN(t)) { toast('체감온도를 입력해 주세요'); return; }
+  edit.temp = Math.round(t);
+  if (!allItems(edit.items).length) { toast('입은 옷을 하나 이상 골라주세요'); return; }
+  const same = S.records.find(r => r.date === edit.date && r.id !== edit.id);
+  if (same && !confirm(`${fmtDate(edit.date)} 기록이 이미 있어요. 바꿀까요?`)) return;
+  S.records = S.records.filter(r => r.id !== edit.id && r.date !== edit.date);
+  S.records.push({...edit, id: edit.id || Date.now().toString(36)});
+  save(); closeSheet(); toast('기록했어요 ✨'); render(); renderHist();
+};
+$('#logDel').onclick = () => {
+  if (!confirm('이 기록을 지울까요?')) return;
+  S.records = S.records.filter(r => r.id !== edit.id); save(); closeSheet(); render(); renderHist(); toast('지웠어요');
+};
+
+/* ---- 위치 ---- */
+function useGPS(){
+  if (!navigator.geolocation){ toast('위치 기능을 쓸 수 없어요'); openSheet('#locSheet'); return; }
+  $('#placeName').textContent = '위치 확인 중…';
+  navigator.geolocation.getCurrentPosition(async p => {
+    const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
+    let name = '현재 위치';
+    try {
+      const r = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`)).json();
+      name = r.locality || r.city || r.principalSubdivision || name;
+    } catch(e){}
+    S.loc = {lat, lon, name, gps:true}; save(); closeSheet(); render(); fetchWeather();
+  }, () => { toast('위치 권한이 없어서 도시를 검색해 주세요'); render(); openSheet('#locSheet'); setTimeout(()=>$('#locSearch').focus(),300); },
+  {timeout:10000, maximumAge:600000});
+}
+let searchT;
+$('#locSearch').addEventListener('input', e => {
+  clearTimeout(searchT); const q = e.target.value.trim();
+  if (q.length < 1){ $('#locResults').innerHTML=''; return; }
+  searchT = setTimeout(async () => {
+    try {
+      const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=ko`)).json();
+      $('#locResults').innerHTML = (r.results||[]).map(x => `<button class="result" data-lat="${x.latitude}" data-lon="${x.longitude}" data-name="${esc(x.name)}">
+        ${esc(x.name)}<span>${esc([x.admin1, x.country].filter(Boolean).join(', '))}</span></button>`).join('') ||
+        '<div class="empty" style="padding:30px">검색 결과가 없어요</div>';
+    } catch(e){ $('#locResults').innerHTML = '<div class="empty" style="padding:30px">인터넷 연결을 확인해 주세요</div>'; }
+  }, 300);
+});
+$('#locResults').addEventListener('click', e => {
+  const b = e.target.closest('.result'); if (!b) return;
+  S.loc = {lat:+b.dataset.lat, lon:+b.dataset.lon, name:b.dataset.name, gps:false}; save();
+  closeSheet(); $('#locSearch').value=''; $('#locResults').innerHTML=''; render(); fetchWeather();
+});
+
+/* ---- 이벤트 ---- */
+document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => showView(b.dataset.view));
+document.querySelectorAll('.daytabs button').forEach(b => b.onclick = () => { day = +b.dataset.day; pick = 0; render(); });
+$('#placeBtn').onclick = $('#setLoc').onclick = () => openSheet('#locSheet');
+$('#gpsBtn').onclick = $('#setGps').onclick = useGPS;
+$('#refreshBtn').onclick = () => { toast('날씨를 새로 불러와요'); S.loc?.gps ? useGPS() : fetchWeather(); };
+$('#dim').onclick = closeSheet;
+$('#alts').onclick = e => { const b = e.target.closest('.alt'); if (b){ pick = +b.dataset.i; render(); } };
+$('#woreBtn').onclick = () => {
+  const info = dayInfo(0); if (!info) return;
+  const exist = S.records.find(r => r.date === todayStr());
+  if (exist && !confirm('오늘 기록이 이미 있어요. 이 옷차림으로 바꿀까요?')) return;
+  S.records = S.records.filter(r => r.date !== todayStr());
+  S.records.push({id:Date.now().toString(36), date:todayStr(), temp:info.base, items:JSON.parse(JSON.stringify(recs[pick].items)), rating:null});
+  save(); render(); toast('기록했어요! 저녁에 어땠는지 알려주세요 🙌');
+};
+$('#otherBtn').onclick = () => {
+  const r = S.records.find(r => r.date === todayStr());
+  openLog(r || {date:todayStr(), temp:dayInfo(0)?.base ?? '', items:JSON.parse(JSON.stringify(recs[pick]?.items || {outer:[],top:[],bottom:[],extra:[]})), rating:null});
+};
+$('#addRecBtn').onclick = () => openLog(null);
+$('#histList').onclick = e => { const b = e.target.closest('.rec'); if (b) openLog(S.records.find(r => r.id === b.dataset.id)); };
+$('#rateCard').onclick = e => {
+  const b = e.target.closest('button[data-r]'); if (!b) return;
+  const r = S.records.find(r => r.id === b.dataset.id); if (!r) return;
+  r.rating = b.dataset.r; save(); render();
+  toast({cold:'다음엔 더 따뜻하게 추천할게요 🧣', good:'좋아요! 기억해 둘게요 😊', hot:'다음엔 더 가볍게 추천할게요 👕'}[r.rating]);
+};
+$('#installBanner').onclick = async e => {
+  if (e.target.id === 'hideInstall'){ S.hideInstall = true; save(); renderInstall(); }
+  if (e.target.id === 'installNow' && deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; renderInstall(); }
+};
+$('#exportBtn').onclick = async () => {
+  const data = JSON.stringify({app:'outfit', v:1, at:new Date().toISOString(), records:S.records, custom:S.custom}, null, 1);
+  const name = `옷차림백업_${todayStr()}.json`;
+  const file = new File([data], name, {type:'application/json'});
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({files:[file], title:name}); return; } catch(e){ if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (!Array.isArray(d.records)) throw 0;
+    if (!confirm(`기록 ${d.records.length}개를 불러올까요? (같은 날짜는 백업 내용으로 바뀌어요)`)) return;
+    const dates = new Set(d.records.map(r => r.date));
+    S.records = [...S.records.filter(r => !dates.has(r.date)), ...d.records];
+    for (const c of CATS) S.custom[c.k] = [...new Set([...(S.custom[c.k]||[]), ...((d.custom||{})[c.k]||[])])];
+    save(); render(); toast('불러왔어요 ✨');
+  } catch(err){ toast('올바른 백업 파일이 아니에요'); }
+  e.target.value = '';
+};
+$('#resetBtn').onclick = () => {
+  if (!confirm('모든 옷차림 기록을 지울까요? 되돌릴 수 없어요.')) return;
+  S.records = []; save(); render(); toast('모두 지웠어요');
+};
+
+/* ---- 시작 ---- */
+render();
+if (!S.loc) useGPS();
+else if (!S.wx || Date.now() - S.wx.at > 30*60e3) (S.loc.gps ? useGPS() : fetchWeather());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S.loc && (!S.wx || Date.now() - S.wx.at > 30*60e3)) fetchWeather();
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
