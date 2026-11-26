@@ -55,14 +55,14 @@ window.MODES = [
     },
     rules: [[27,[0,0,0,0]], [22,[0,0,1,0]], [17,[1,1,2,0]], [12,[2,1,2,0]], [7,[3,3,3,1]], [-99,[4,3,3,2]]],
     tips: i => {
-      const t = ['🏌️ 샷 하기 전에 깃발·나뭇잎으로 바람 방향을 꼭 확인하세요'];
-      if (i.base <= 10 || wet(i)) t.push('🥶 춥거나 비가 오면 공이 덜 날아가요 · 한 클럽 더 크게 고민해 보세요');
-      if (i.w >= 5) t.push(`💨 바람 ${Math.round(i.w)}m/s · 맞바람엔 한 클럽 길게, 뒷바람엔 짧게 · 낮게 깔리는 샷이 유리해요`);
-      if (i.base <= 3) t.push('🧊 그린이 얼면 공이 많이 튀어요 · 그린 앞에 떨어뜨려 굴리기');
-      if (i.base >= 28) t.push('🥵 더위에 집중력이 떨어져요 · 홀마다 물 마시고 그늘에서 쉬기');
-      if (wet(i)) t.push('🧤 그립이 미끄러워요 · 여벌 장갑과 마른 수건 챙기기');
-      if (i.amax - i.amin >= 6) t.push('⛳ 라운딩 중 기온 변화가 커요 · 벗기 쉬운 겹쳐 입기');
-      if (!wet(i) && i.p < 40 && i.w < 4 && i.base >= 14 && i.base <= 26) t.push('🏆 라베(라이프 베스트) 하기 좋은 날씨예요!');
+      const P = PH.sport.golf, v = {w: Math.round(i.w)}, t = [say(P.base, 'g.base')];
+      if (i.base <= 10 || wet(i)) t.push(say(P.cold, 'g.cold'));
+      if (i.w >= 5) t.push(say(P.wind, 'g.wind', v));
+      if (i.base <= 3) t.push(say(P.frozen, 'g.frz'));
+      if (i.base >= 28) t.push(say(P.hot, 'g.hot'));
+      if (wet(i)) t.push(say(P.wet, 'g.wet'));
+      if (i.amax - i.amin >= 6) t.push(say(P.swing, 'g.sw'));
+      if (!wet(i) && i.p < 40 && i.w < 4 && i.base >= 14 && i.base <= 26) t.push(say(P.nice, 'g.nice'));
       return t;
     },
   },
@@ -77,13 +77,13 @@ window.MODES = [
     },
     rules: [[17,[0,0,0,0]], [11,[0,0,0,1]], [6,[0,1,1,1]], [1,[2,1,2,1]], [-5,[2,2,3,2]], [-99,[3,3,3,2]]],
     tips: i => {
-      const t = ['🏃 10분만 뛰어도 몸이 데워져요 · 출발할 때 살짝 쌀쌀한 게 딱 좋아요'];
-      if (i.base >= 25) t.push('🥵 더운 날은 페이스를 평소보다 늦추고, 출발 전·중간에 물 마시기');
-      if (i.base <= 3) t.push('🧊 처음 10분은 천천히 몸 풀기 · 추운 날은 근육 부상 조심');
-      if (i.w >= 5) t.push('💨 갈 때 맞바람, 돌아올 때 뒷바람이 되게 코스를 잡으면 덜 힘들어요');
-      if (wet(i)) t.push('👟 젖은 길·맨홀 뚜껑·횡단보도 페인트가 미끄러워요');
-      if (i.uv >= 7 && i.h0 < 16) t.push('😎 햇볕이 강해요 · 그늘 코스, 모자·선글라스');
-      if (!wet(i) && i.p < 40 && i.w < 5 && i.base >= 5 && i.base <= 15) t.push('🏅 달리기 딱 좋은 날씨! 기록(PB) 도전하기 좋아요');
+      const P = PH.sport.running, v = {w: Math.round(i.w)}, t = [say(P.base, 'r.base')];
+      if (i.base >= 25) t.push(say(P.hot, 'r.hot'));
+      if (i.base <= 3) t.push(say(P.cold, 'r.cold'));
+      if (i.w >= 5) t.push(say(P.wind, 'r.wind', v));
+      if (wet(i)) t.push(say(P.wet, 'r.wet'));
+      if (i.uv >= 7 && i.h0 < 16) t.push(say(P.sun, 'r.sun'));
+      if (!wet(i) && i.p < 40 && i.w < 5 && i.base >= 5 && i.base <= 15) t.push(say(P.nice, 'r.nice'));
       return t;
     },
   },
@@ -98,13 +98,13 @@ window.MODES = [
     },
     rules: [[25,[0,0,1,0]], [19,[1,0,2,0]], [13,[1,1,2,0]], [7,[2,1,2,1]], [1,[3,2,3,1]], [-99,[4,3,3,2]]],
     tips: i => {
-      const t = ['⛰️ 100m 오를 때마다 약 0.6° 내려가요 · 정상에서 입을 겉옷 챙기기'];
-      if (i.base < 20) t.push('💧 땀이 식으면 추워요 · 면 대신 기능성 옷, 쉴 땐 바로 겉옷');
-      if (i.w >= 5) t.push('💨 능선·정상은 바람이 훨씬 세요 · 방풍 겉옷 꼭');
-      if (i.base <= 3) t.push('🌇 해가 지면 급격히 추워져요 · 하산 시간 넉넉히, 보온병에 따뜻한 물');
-      if (i.base >= 25) t.push('🥵 물 넉넉히 (1시간에 500ml 정도) · 그늘에서 자주 쉬기');
-      if (wet(i)) t.push('🥾 바위·나무뿌리가 미끄러워요 · 스틱 쓰고 천천히');
-      if (clearSky(i) && !wet(i) && i.w < 6 && i.base >= 8 && i.base <= 22) t.push('🌄 하늘이 맑아 정상 조망이 좋은 날이에요');
+      const P = PH.sport.hiking, v = {w: Math.round(i.w)}, t = [say(P.base, 'h.base')];
+      if (i.base < 20) t.push(say(P.sweat, 'h.sw'));
+      if (i.w >= 5) t.push(say(P.wind, 'h.wind', v));
+      if (i.base <= 3) t.push(say(P.cold, 'h.cold'));
+      if (i.base >= 25) t.push(say(P.hot, 'h.hot'));
+      if (wet(i)) t.push(say(P.wet, 'h.wet'));
+      if (clearSky(i) && !wet(i) && i.w < 6 && i.base >= 8 && i.base <= 22) t.push(say(P.nice, 'h.nice'));
       return t;
     },
   },
@@ -119,14 +119,14 @@ window.MODES = [
     },
     rules: [[18,[0,0,0,0]], [13,[1,1,1,0]], [8,[2,1,2,1]], [3,[3,2,3,1]], [-99,[4,3,3,2]]],
     tips: i => {
-      const t = [];
-      if (i.base < 18) t.push('🚴 달리는 바람 때문에 체감이 더 낮아요 · 손·발끝 보온 신경 쓰기');
-      if (i.w >= 5) t.push('💨 맞바람 구간은 기어를 가볍게 · 갈 때 맞바람 코스면 돌아올 때 편해요');
-      if (i.base <= 5) t.push('🧊 내리막에선 체감이 확 떨어져요 · 내려가기 전에 바람막이 입기');
-      if (i.base >= 28) t.push('🥵 물통 2개 · 20~30분마다 수분 보충');
-      if (wet(i)) t.push('🛞 젖은 노면·맨홀·차선 페인트 조심 · 브레이크는 일찍, 부드럽게');
-      if (i.h1 >= 18 || i.h0 <= 6) t.push('💡 어두운 시간이에요 · 전조등·후미등 필수');
-      if (!wet(i) && i.w < 4 && i.base >= 12 && i.base <= 24) t.push('🚴 라이딩하기 딱 좋은 날! 장거리 코스 도전해 보세요');
+      const P = PH.sport.cycling, v = {w: Math.round(i.w)}, t = [say(P.base, 'c.base')];
+      if (i.base < 18) t.push(say(P.chill, 'c.ch'));
+      if (i.w >= 5) t.push(say(P.wind, 'c.wind', v));
+      if (i.base <= 5) t.push(say(P.cold, 'c.cold'));
+      if (i.base >= 28) t.push(say(P.hot, 'c.hot'));
+      if (wet(i)) t.push(say(P.wetTip, 'c.wet'));
+      if (i.h1 >= 18 || i.h0 <= 6) t.push(say(P.dark, 'c.dark'));
+      if (!wet(i) && i.w < 4 && i.base >= 12 && i.base <= 24) t.push(say(P.nice, 'c.nice'));
       return t;
     },
   },
@@ -141,12 +141,12 @@ window.MODES = [
     },
     rules: [[24,[0,0,0,0]], [16,[1,0,0,0]], [10,[1,1,2,0]], [4,[2,1,3,0]], [-99,[3,3,3,1]]],
     tips: i => {
-      const t = ['🎾 워밍업 땐 겉옷 입고, 게임 시작하면 벗기 쉽게'];
-      if (i.w >= 4) t.push('💨 바람이 불면 서브 토스를 낮게 · 로브는 바람 방향 보고');
-      if (i.base <= 8) t.push('🧊 추우면 공이 덜 튀고 몸이 굳어요 · 스트레칭 충분히');
-      if (i.base >= 27) t.push('🥵 체인지오버마다 물 마시기 · 하드코트는 바닥 열기가 더해요');
-      if (clearSky(i) && i.h0 < 17) t.push('😎 서브 토스할 때 해 방향 확인 · 모자·선글라스');
-      if (!wet(i) && i.w < 3 && i.base >= 14 && i.base <= 24) t.push('🎾 테니스 치기 딱 좋은 날씨예요!');
+      const P = PH.sport.tennis, t = [say(P.base, 't.base')];
+      if (i.w >= 4) t.push(say(P.wind, 't.wind'));
+      if (i.base <= 8) t.push(say(P.cold, 't.cold'));
+      if (i.base >= 27) t.push(say(P.hot, 't.hot'));
+      if (clearSky(i) && i.h0 < 17) t.push(say(P.sun, 't.sun'));
+      if (!wet(i) && i.w < 3 && i.base >= 14 && i.base <= 24) t.push(say(P.nice, 't.nice'));
       return t;
     },
   },

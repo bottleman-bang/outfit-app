@@ -318,6 +318,9 @@ function dayInfo(i, mode = cur(), hrs = null){
 const isToday = info => info && info.date === todayStr();
 
 /* ================== 체감 브리핑 ================== */
+function feelBand(t){
+  return t <= -5 ? 'vcold' : t <= 3 ? 'cold' : t <= 9 ? 'chilly' : t <= 15 ? 'cool' : t <= 21 ? 'mild' : t <= 26 ? 'warm' : t <= 30 ? 'hot' : 'vhot';
+}
 function feelDaga(t){ // 쌀쌀하다가, 춥다가 …
   return t <= -5 ? '아주 춥다가' : t <= 3 ? '춥다가' : t <= 9 ? '쌀쌀하다가' : t <= 15 ? '선선하다가' : t <= 21 ? '포근하다가' : t <= 26 ? '따뜻하다가' : t <= 30 ? '덥다가' : '무덥다가';
 }
@@ -330,11 +333,10 @@ function briefing(info, mode){
   let cond;
   if (info.rainHours.length){
     const s = info.rainHours[0], e = info.rainHours[info.rainHours.length - 1] + 1;
-    cond = info.rainHours.length >= span * 0.7 ? `내내 ${w}가 와요` :
-      e > info.h1 ? `${fmtHour(s)}부터 ${w}가 와요` : `${fmtRange(s, e)} ${w}가 와요`;
-    if (snowy) cond = cond.replace('눈가', '눈이');
-  } else if (info.w >= 8) cond = '바람이 강해요';
-  else cond = {맑음:'맑아요', '구름 조금':'구름이 조금 있어요', '구름 많음':'구름이 많아요', 흐림:'흐려요', 안개:'안개가 껴요', '바람 강함':'바람이 강해요'}[info.sky.label] || '';
+    cond = info.rainHours.length >= span * 0.7 ? say(snowy ? PH.snowAll : PH.rainAll, 'cond.all') :
+      say(snowy ? PH.snowAt : PH.rainAt, 'cond.at', {r: e > info.h1 ? `${fmtHour(s)}부터` : fmtRange(s, e)});
+  } else if (info.w >= 8) cond = say(PH.windy, 'cond.wind');
+  else cond = PH.sky[info.sky.label] ? say(PH.sky[info.sky.label], 'cond.sky') : '';
   const items = [];
 
   // 체감온도 흐름
@@ -361,7 +363,8 @@ function briefing(info, mode){
   mode.tips(info).forEach(t => { const k = t.indexOf(' '); items.push([t.slice(0, k), t.slice(k + 1)]); });
   if (info.spread >= 4) items.push(['🤔', '예보끼리 차이가 커요 · <b>한 겹 더 챙기면 안심</b>']);
   if (info.i >= 7) items.push(['📅', '먼 날짜라 예보가 바뀔 수 있어요 · 가까워지면 다시 확인해 주세요']);
-  return { headline: `${feelWord(info.base)}${cond ? ', ' + cond : ''}`, items };
+  const feel = say(PH.feel[feelBand(info.base)], 'feel');
+  return { headline: cond ? say(PH.headJoin, 'hj', {f: feel, c: cond}) : feel, items };
 }
 
 // 비·눈이 기준 이상이면 우산 알림
@@ -373,49 +376,50 @@ function umbrellaAlert(info, mode){
     ? `${fmtRange(hrs[0], hrs[hrs.length - 1] + 1)} ` : hrs.length ? '하루 종일 ' : '';
   const kid = mode && mode.kid ? ' · 아이는 <b>우비·장화</b>' : '';
   if (info.snow >= 0.5)
-    return {lv: 2, html: `☃️ <b>우산 챙기세요</b> · ${when}눈 ${r1(info.snow)}cm · ${info.snow >= 3 ? '<b>미끄럼 주의, 방한화</b>' : '미끄럼 주의'}${kid}`};
+    return {lv: 2, html: say(PH.umb.snow, 'umb.s', {d: `${when}눈 ${r1(info.snow)}cm · ${info.snow >= 3 ? '<b>미끄럼 주의, 방한화</b>' : '미끄럼 주의'}`}) + kid};
   if (info.mm >= 1 || info.p >= 60)
-    return {lv: 2, html: `☂️ <b>우산 꼭 챙기세요</b> · ${info.mm >= 0.1 ? `${when}비 ${r1(info.mm)}mm` : `비 올 확률 ${info.p}%`}${info.mm >= 10 ? ' · <b>방수 신발</b>' : ''}${kid}`};
+    return {lv: 2, html: say(PH.umb.rain, 'umb.r', {d: (info.mm >= 0.1 ? `${when}비 ${r1(info.mm)}mm` : `비 올 확률 ${info.p}%`) + (info.mm >= 10 ? ' · <b>방수 신발</b>' : '')}) + kid};
   if (info.mm >= 0.1 || info.p >= 40)
-    return {lv: 1, html: `🌂 <b>작은 우산 챙기면 안심</b> · ${info.mm >= 0.1 ? `${when}비 조금 (${r1(info.mm)}mm)` : `비 올 확률 ${info.p}%`}${kid}`};
+    return {lv: 1, html: say(PH.umb.light, 'umb.l', {d: info.mm >= 0.1 ? `${when}비 조금 (${r1(info.mm)}mm)` : `비 올 확률 ${info.p}%`}) + kid};
   return null;
 }
 // 운동별 비·눈·바람 판단 (취소 추천 등). 강수는 활동 시간대의 '시간당 최대' 기준
 function sportAlert(info, mode){
   const mx = info.mmMax || 0, tot = info.mm || 0, sn = info.snow || 0, p = info.p || 0, w = info.w || 0;
-  const T = (lv, html) => ({lv, html});
-  if (info.code >= 95) return T(3, `⛈️ <b>낙뢰 위험 · ${mode.name} 취소 추천</b>`);
+  const T = (lv, arr, key, v = {}) => ({lv, html: say(arr, 'sa.' + key, {x: r1(mx), t: r1(tot), s: r1(sn), p, w: Math.round(w), m: mode.name, ...v})});
+  if (info.code >= 95) return T(3, PH.sport.thunder, 'th');
+  const P = PH.sport[mode.id];
   switch (mode.id){
     case 'golf':
-      if (sn >= 0.5) return T(3, `☃️ <b>라운딩 취소·연기 추천</b> · 눈 ${r1(sn)}cm`);
-      if (mx > 2) return T(3, `⛔ <b>라운딩 취소·연기 추천</b> · 시간당 최대 ${r1(mx)}mm (2mm 초과)`);
-      if (mx >= 0.1) return T(2, `☂️ <b>우산 필수</b> · 시간당 최대 ${r1(mx)}mm · 여벌 장갑·수건·비옷`);
-      if (p >= 60) return T(2, `☂️ <b>우산 챙기기</b> · 비 올 확률 ${p}%`);
-      if (p >= 40) return T(1, `🌂 비 올 수도 있어요 (${p}%) · 우산은 카트에`);
-      if (w >= 10) return T(1, `💨 바람 ${Math.round(w)}m/s · 클럽 선택 신경 쓰기`);
+      if (sn >= 0.5) return T(3, P.stopSnow, 'g1');
+      if (mx > 2) return T(3, P.stopRain, 'g2');
+      if (mx >= 0.1) return T(2, P.umb, 'g3');
+      if (p >= 60) return T(2, P.prob, 'g4');
+      if (p >= 40) return T(1, P.maybe, 'g5');
+      if (w >= 10) return T(1, P.windy, 'g6');
       break;
     case 'running':
-      if (sn >= 0.5) return T(3, `☃️ <b>길이 미끄러워요 · 실내 러닝 추천</b> · 눈 ${r1(sn)}cm`);
-      if (mx >= 3) return T(3, `⛔ <b>실내 러닝(트레드밀) 추천</b> · 시간당 최대 ${r1(mx)}mm`);
-      if (mx >= 0.5) return T(2, `🌧️ <b>비 맞으며 달리게 돼요</b> · 챙 모자·방수 바람막이, 미끄럼 주의`);
-      if (mx >= 0.1 || p >= 50) return T(1, `🌦️ 가랑비 정도 · 챙 모자 쓰면 괜찮아요`);
+      if (sn >= 0.5) return T(3, P.stopSnow, 'r1');
+      if (mx >= 3) return T(3, P.stopRain, 'r2');
+      if (mx >= 0.5) return T(2, P.rain, 'r3');
+      if (mx >= 0.1 || p >= 50) return T(1, P.drizzle, 'r4');
       break;
     case 'hiking':
-      if (mx >= 1 || tot >= 5) return T(3, `⛔ <b>등산 취소·연기 추천</b> · 비 ${r1(tot)}mm · 바위·흙길이 미끄럽고 계곡 물이 불어요`);
-      if (sn >= 0.5) return T(2, `☃️ <b>아이젠·스패츠 필수</b> · 눈 ${r1(sn)}cm`);
-      if (mx >= 0.1 || p >= 50) return T(2, `☂️ <b>우비·배낭 커버 챙기기</b> · ${mx >= 0.1 ? '비 ' + r1(tot) + 'mm' : '비 올 확률 ' + p + '%'}`);
-      if (w >= 10) return T(2, `💨 <b>능선 바람이 아주 강해요</b> (${Math.round(w)}m/s) · 정상 구간 주의`);
+      if (mx >= 1 || tot >= 5) return T(3, P.stopRain, 'h1');
+      if (sn >= 0.5) return T(2, P.snow, 'h2');
+      if (mx >= 0.1 || p >= 50) return T(2, P.rain, 'h3', {d: mx >= 0.1 ? '비 ' + r1(tot) + 'mm' : '비 올 확률 ' + p + '%'});
+      if (w >= 10) return T(2, P.windTop, 'h4');
       break;
     case 'cycling':
-      if (sn >= 0.1) return T(3, `⛔ <b>라이딩 취소 추천</b> · 눈·결빙 위험`);
-      if (mx >= 0.5) return T(3, `⛔ <b>라이딩 취소·실내 트레이너 추천</b> · 노면이 미끄럽고 제동 거리가 길어져요`);
-      if (mx >= 0.1 || p >= 50) return T(2, `🌦️ <b>젖은 노면 주의</b> · 펜더·방수 자켓, 코너는 천천히`);
-      if (w >= 8) return T(2, `💨 <b>맞바람이 강해요</b> (${Math.round(w)}m/s) · 코스를 짧게`);
+      if (sn >= 0.1) return T(3, P.stopSnow, 'c1');
+      if (mx >= 0.5) return T(3, P.stopRain, 'c2');
+      if (mx >= 0.1 || p >= 50) return T(2, P.wet, 'c3');
+      if (w >= 8) return T(2, P.windStop, 'c4');
       break;
     case 'tennis':
-      if (mx >= 0.2 || tot >= 0.5) return T(3, `⛔ <b>야외 코트 취소 추천</b> · 젖은 코트는 미끄러워요 (실내 코트는 OK)`);
-      if (p >= 60) return T(2, `☂️ <b>비 올 확률 ${p}%</b> · 취소될 수 있어요 · 실내 코트 알아두기`);
-      if (w >= 7) return T(1, `💨 바람 ${Math.round(w)}m/s · 공이 많이 흔들려요`);
+      if (mx >= 0.2 || tot >= 0.5) return T(3, P.stopRain, 't1');
+      if (p >= 60) return T(2, P.prob, 't2');
+      if (w >= 7) return T(1, P.windy, 't3');
       break;
   }
   return null;
@@ -433,59 +437,60 @@ function periodLine(inf){
 }
 // 시간 흐름에 따라 느껴질 체감 (아침→낮→저녁)
 function flowBrief(PP, infos){
-  const n = infos.length, b = infos.map(x => x.base), out = [];
+  const n = infos.length, b = infos.map(x => x.base), out = [], F = PH.flow;
   if (n < 2) return out;
-  const mx = Math.max(...b), mn = Math.min(...b), iMax = b.indexOf(mx), iMin = b.indexOf(mn), L = j => PP[j].label;
+  const mx = Math.max(...b), mn = Math.min(...b), iMax = b.indexOf(mx), L = j => PP[j].label;
   if (iMax > 0 && mx - b[0] >= 5)
-    out.push(['🌡️', `${L(0)} ${b[0]}°로 ${feelDaga(b[0])} ${L(iMax)}엔 ${mx}°까지 올라요 · <b>${L(0)} 옷 그대로면 ${L(iMax)}엔 덥게</b> 느껴질 수 있어요`]);
-  else if (iMax > 0 && mx - b[0] >= 3) out.push(['🌡️', `${L(iMax)}엔 ${mx - b[0]}° 정도 포근해져요`]);
-  if (iMax < n - 1 && mx - b[n - 1] >= 4)
-    out.push(['🌇', `${L(n - 1)}엔 ${mx - b[n - 1]}° 떨어져 ${b[n - 1]}° · <b>${L(iMax)}에 벗은 겉옷 다시 입기</b>`]);
-  if (mx - mn <= 2) out.push(['🌡️', `하루 종일 체감 ${mn}~${mx}°로 비슷해요`]);
+    out.push(['🌡️', say(F.riseBig, 'f.rb', {a: L(0), at: b[0], b: L(iMax), bt: mx, d: mx - b[0], daga: feelDaga(b[0])})]);
+  else if (iMax > 0 && mx - b[0] >= 3) out.push(['🌡️', say(F.riseSmall, 'f.rs', {a: L(0), b: L(iMax), d: mx - b[0]})]);
+  if (iMax === 0 && mx - b[n - 1] >= 4)
+    out.push(['📉', say(F.dropAll, 'f.da', {a: L(0), at: mx, c: L(n - 1), ct: b[n - 1], d: mx - b[n - 1]})]);
+  else if (iMax < n - 1 && mx - b[n - 1] >= 4)
+    out.push(['🌇', say(F.fall, 'f.fa', {b: L(iMax), bt: mx, c: L(n - 1), ct: b[n - 1], d: mx - b[n - 1]})]);
+  if (mx - mn <= 2) out.push(['🌡️', say(F.flat, 'f.fl', {mn, mx})]);
   for (let j = 1; j < n; j++) if (infos[j].w >= 5 && infos[j].w - infos[j - 1].w >= 3){
-    out.push(['💨', `${L(j)}부터 바람이 세져(${Math.round(infos[j].w)}m/s) <b>숫자보다 더 춥게</b> 느껴져요`]); break; }
+    out.push(['💨', say(F.windUp, 'f.wu', {p: L(j), w: Math.round(infos[j].w)})]); break; }
   const wetI = infos.map(x => x.mm >= 0.1);
   for (let j = 1; j < n; j++){
-    if (wetI[j] && !wetI[j - 1]){ out.push(['🌧️', `${L(j)}부터 비 · 젖으면 체감이 1~2° 더 떨어져요`]); break; }
-    if (!wetI[j] && wetI[j - 1]){ out.push(['🌤️', `${L(j)}엔 비가 그쳐요`]); break; }
+    if (wetI[j] && !wetI[j - 1]){ out.push(['🌧️', say(F.rainStart, 'f.rst', {p: L(j)})]); break; }
+    if (!wetI[j] && wetI[j - 1]){ out.push(['🌤️', say(F.rainEnd, 'f.ren', {p: L(j)})]); break; }
   }
   const mid = infos[PP.findIndex(p => p.k === 'pm')];
-  if (mid && clearSky(mid) && mid.uv >= 4 && mid.base >= 12) out.push(['☀️', '낮 햇볕 아래선 숫자보다 더 따뜻하게 느껴져요 · 그늘·실내는 선선해요']);
-  else if (infos.every(x => x.sky.label === '흐림') && mx <= 12) out.push(['☁️', '해가 안 나서 하루 종일 으슬으슬할 수 있어요']);
-  if (mx <= 5) out.push(['🏠', '실내는 난방으로 따뜻해요 · 들어가면 벗기 쉬운 겉옷']);
-  else if (mn >= 27) out.push(['🏠', '실내 냉방이 세요 · 얇은 겉옷 하나 챙기기']);
+  if (mid && clearSky(mid) && mid.uv >= 4 && mid.base >= 12) out.push(['☀️', say(F.sunWarm, 'f.sun')]);
+  else if (infos.every(x => x.sky.label === '흐림') && mx <= 12) out.push(['☁️', say(F.overcastCold, 'f.oc')]);
+  if (mx <= 5) out.push(['🏠', say(F.indoorWarm, 'f.iw')]);
+  else if (mn >= 27) out.push(['🏠', say(F.indoorCool, 'f.ic')]);
   return out.slice(0, 5);
 }
 // 옷차림 한 줄 정리 (겉옷·상의·하의를 넘어 전체 요약)
 function totalBrief(mode, infos, cols, PP, umb){
-  const lines = [], b = infos.map(x => x.base), mx = Math.max(...b), mn = Math.min(...b), L = j => PP ? PP[j].label : '';
+  const lines = [], b = infos.map(x => x.base), mx = Math.max(...b), mn = Math.min(...b), L = j => PP ? PP[j].label : '', T = PH.total;
   let main;
   if (PP && cols){
     const lv = cols.map(c => c.lv), varying = lv.some(x => x.outer !== lv[0].outer || x.top !== lv[0].top);
     const maxO = Math.max(...lv.map(x => x.outer)), O = mode.levels.outer;
-    const easy = [...(O[maxO].ex.slice(-1)), ...(maxO > 1 ? O[maxO - 1].ex.slice(0, 1) : [])].filter(Boolean).join('·');
+    // 벗어서 들고 다니기 쉬운 가벼운 겉옷 예시 (두꺼운 단계부터 찾아 내려가요)
+    const LIGHT = /경량|가디건|자켓|바람막이|조끼|베스트|집업|후리스|플리스|점퍼|셔츠/;
+    const ex = [...new Set([maxO, maxO - 1, maxO - 2].filter(k => k >= 1).flatMap(k => O[k].ex).filter(n => LIGHT.test(n)))].slice(0, 2).join('·');
+    const lo = b.indexOf(mn), hi = b.indexOf(mx);
     if (varying || mx - mn >= 5)
-      main = `${L(b.indexOf(mn))}·${L(b.indexOf(mx))} 체감 차이가 ${mx - mn}°라 <b>입었다 벗었다 하기 좋은 옷</b>으로 추천드려요 · 얇은 옷을 겹쳐 입고${easy ? `, 벗어서 들기 쉬운 겉옷(${easy})` : ''}`;
-    else if (mx <= 5) main = '하루 종일 추워요 · <b>따뜻하게 껴입고</b> 목·손까지 보온하세요';
-    else if (mn >= 26) main = '하루 종일 더워요 · <b>통풍 잘 되는 얇은 옷</b> 위주로, 실내 냉방 대비 얇은 겉옷 하나';
-    else main = `하루 종일 비슷해요 · <b>겉옷은 '${O[lv[0].outer].n}', 상의는 '${mode.levels.top[lv[0].top].n}'</b> 정도면 충분해요`;
+      main = say(T.vary, 't.v', {lo: L(lo), hi: L(hi), lot: mn, hit: mx, d: mx - mn, easy: ex ? say(T.easy, 't.e', {ex}) : ''});
+    else if (mx <= 5) main = say(T.cold, 't.c');
+    else if (mn >= 26) main = say(T.hot, 't.h');
+    else main = say(T.same, 't.s', {o: O[lv[0].outer].n, t: mode.levels.top[lv[0].top].n});
     let lighter = false, warmer = false;
     for (let j = 1; j < lv.length; j++){
       const a = lv[j - 1], c = lv[j];
-      if (!lighter && (c.outer < a.outer || c.top < a.top)){ lighter = true; lines.push(`☀️ ${L(j)}엔 겉옷을 벗거나 가볍게 해도 돼요`); }
-      else if (!warmer && (c.outer > a.outer || c.top > a.top)){ warmer = true; lines.push(`🌙 ${L(j)}엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기`); }
+      if (!lighter && (c.outer < a.outer || c.top < a.top)){ lighter = true; lines.push(say(T.lighter, 't.li', {p: L(j)})); }
+      else if (!warmer && (c.outer > a.outer || c.top > a.top)){ warmer = true; lines.push(say(T.warmer, 't.wa', {p: L(j)})); }
     }
   } else {
-    const i = infos[0], d = i.amax - i.amin;
-    main = d >= 5 ? `운동하는 동안 체감이 ${i.amin}~${i.amax}°로 변해요 · <b>벗기 쉬운 겹쳐 입기</b>로 추천드려요`
-                  : `운동하는 동안 체감이 ${i.amin}~${i.amax}°로 비슷해요 · 추천 두께 그대로면 돼요`;
-    const sp = {golf: '⛳ 라운딩 4~5시간 · 바람막이는 카트에 두고 필요할 때 입기', running: '🏃 뛰고 나면 땀이 식어 추워요 · 마치고 걸칠 겉옷 하나',
-      hiking: '⛰️ 오를 땐 덥고 쉴 땐 추워요 · 쉴 때 입을 겉옷은 배낭 맨 위에', cycling: '🚴 출발할 땐 살짝 춥게 · 바람막이는 접어서 등 주머니에',
-      tennis: '🎾 게임 전후로 걸칠 겉옷 · 땀 닦을 수건과 여벌 티셔츠'}[mode.id];
-    if (sp) lines.push(sp);
+    const i = infos[0], d = i.amax - i.amin, v = {mn: i.amin, mx: i.amax, d};
+    main = d >= 5 ? say(T.sportVary, 't.sv', v) : say(T.sportFlat, 't.sf', v);
+    if (T.sport[mode.id]) lines.push(say(T.sport[mode.id], 't.sp'));
   }
-  if (infos.some(x => x.w >= 7)) lines.push('💨 바람이 세요 · 바람 막아주는 겉옷(바람막이·자켓)');
-  if (mode.kid) lines.push('🧒 아이는 땀을 많이 흘려요 · 벗기 쉬운 겉옷 + 여벌 옷');
+  if (infos.some(x => x.w >= 7)) lines.push(say(T.wind, 't.wi'));
+  if (mode.kid) lines.push(say(T.kid, 't.k'));
   if (umb) lines.unshift({stop: umb.lv === 3, html: umb.html});
   return `<div class="total"><div class="tt">💡 옷차림 한 줄 정리</div><div>${main}</div>` +
     (lines.length ? `<ul>${lines.map(l => typeof l === 'string' ? `<li>${l}</li>` : `<li class="${l.stop ? 'stop' : 'umbl'}">${l.html}</li>`).join('')}</ul>` : '') + '</div>';
@@ -525,17 +530,15 @@ function recommend(mode, t){
       Math.round((near.reduce((s,n) => s + n.w * n.target[c.k], 0) + W0 * def[c.k]) / (sw + W0))));
     const best = near.filter(n => n.r.rating === 'good').sort((a,b) => b.w - a.w)[0];
     return { lv, mine: true,
-      why: `비슷한 체감온도에서 기록한 <b>${near.length}번</b>을 바탕으로 했어요` +
-        (best ? ` · ${fmtDate(best.r.date)} (체감 ${best.r.temp}°) 딱 좋았던 차림 참고 😊` : '') };
+      why: say(PH.why.mine, 'w.m', {n: near.length}) + (best ? say(PH.why.best, 'w.b', {d: fmtDate(best.r.date), t: best.r.temp}) : '') };
   }
   const rated = recs.filter(r => r.rating).sort((a,b) => b.date.localeCompare(a.date)).slice(0, 20);
   const b = avg(rated.map(r => r.rating === 'cold' ? 1 : r.rating === 'hot' ? -1 : 0));
   if (rated.length >= 3 && Math.abs(b) >= 0.4)
     return { lv: shift(mode, def, Math.sign(b)), mine: true,
-      why: b > 0 ? '평소 <b>추위를 타는 편</b>이라 기본보다 한 단계 따뜻하게 추천해요' : '평소 <b>더위를 타는 편</b>이라 기본보다 한 단계 가볍게 추천해요' };
+      why: b > 0 ? say(PH.why.coldy, 'w.c') : say(PH.why.hoty, 'w.h') };
   return { lv: def, mine: false,
-    why: recs.length ? `일반적인 ${mode.name} 기준이에요 · 이 온도대 기록이 쌓이면 맞춤 추천이 돼요` :
-      `일반적인 ${mode.name} 기준이에요 · 입은 옷을 기록하면 점점 맞춤 추천이 돼요!` };
+    why: say(recs.length ? PH.why.defSome : PH.why.def, 'w.d', {m: mode.name}) };
 }
 
 /* ================== 렌더: 오늘 ================== */
@@ -583,6 +586,8 @@ function render(){
   $('#recCard').hidden = false; $('#fcCard').hidden = false;
   document.documentElement.style.setProperty('--h', hueOf(info.base).toFixed(0));
 
+  // 문구 선택 기준: 날짜·지역·종류·시간대가 같으면 같은 문구, 바뀌면 다른 문구
+  VSEED = `${info.date}|${S.locSel}|${mode.id}|${whenOf(mode) || ''}`;
   // 히어로
   const dt = new Date(info.date + 'T00:00'), P = periodic(mode);
   const PP = PS();
