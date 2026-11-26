@@ -1,3 +1,41 @@
+/* ================== 주소 이전 ==================
+   config.js의 canonical(새 주소)이 정해지면, 예전 주소로 들어온 사람의 기록을 새 주소로 옮기고 이동시켜요.
+   (휴대폰은 사이트 주소마다 저장공간이 따로라서 이렇게 옮겨줘야 해요) */
+(function moveToCanonical(){
+  const C = (window.APP_CONFIG || {}).canonical;
+  if (!C || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
+  const target = new URL(C);
+  if (location.origin === target.origin) return;
+  let payload = '';
+  try {
+    const d = JSON.parse(localStorage.getItem('outfit.v1') || 'null');
+    if (d && ((d.records || []).length || (d.places || []).length)){
+      delete d.wx; delete d.wxc; delete d.pinged;
+      payload = '#import=' + btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+    }
+  } catch(e){}
+  document.body.innerHTML = '<p style="font:600 16px sans-serif;text-align:center;margin-top:40vh">새 주소로 옮기는 중이에요…</p>';
+  location.replace(target.origin + target.pathname + payload);
+  throw new Error('moving to canonical address');
+})();
+(function importFromOldAddress(){
+  const m = location.hash.match(/^#import=(.+)$/); if (!m) return;
+  try {
+    const inc = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    const cur = JSON.parse(localStorage.getItem('outfit.v1') || 'null') || {records: []};
+    const have = new Set((cur.records || []).map(r => r.date + (r.mode || 'daily')));
+    const add = (inc.records || []).filter(r => !have.has(r.date + (r.mode || 'daily')));
+    const out = {...inc, ...cur, records: [...(cur.records || []), ...add]};
+    out.modes = [...new Set([...(cur.modes || []), ...(inc.modes || [])])];
+    if (!(cur.places || []).length) out.places = inc.places || [];
+    if (!cur.gps) out.gps = inc.gps;
+    if (!cur.locSel) out.locSel = inc.locSel;
+    out.moved = add.length || 1; out.hideInstall = false;
+    localStorage.setItem('outfit.v1', JSON.stringify(out));
+  } catch(e){}
+  history.replaceState(null, '', location.pathname);
+})();
+
 /* ================== 데이터 ================== */
 const KEY = 'outfit.v1';
 const MODE = Object.fromEntries(MODES.map(m => [m.id, m]));
@@ -596,6 +634,12 @@ function guideHTML(g, compact){
 function renderInstall(){
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const g = installGuide();
+  if (S.moved){
+    const el0 = $('#installBanner'); el0.hidden = false; $('#days').after(el0);
+    el0.innerHTML = `<button class="x" id="hideMoved">✕</button><b class="gt">📦 새 주소로 이사 왔어요</b>
+      <div class="gl">예전 기록을 그대로 옮겨왔어요. <b>홈 화면 아이콘은 새로 추가</b>해 주시고, 예전 아이콘은 지워도 돼요.</div>` + guideHTML(g, true).replace(/^<b class="gt">.*?<\/b>/, '');
+    return;
+  }
   $('#guideBox').innerHTML = standalone ? '<b class="gt">✅ 홈 화면 앱으로 쓰고 있어요</b><div class="gl">지금처럼 홈 화면 아이콘으로 열면 돼요.</div>' : guideHTML(g, true);
   const el = $('#installBanner');
   if (standalone || S.hideInstall || !BR.mobile && !deferredPrompt){ el.hidden = true; return; }
@@ -959,6 +1003,7 @@ $('#rateCard').onclick = e => {
 };
 $('#installBanner').onclick = async e => {
   if (e.target.id === 'hideInstall'){ S.hideInstall = true; save(); renderInstall(); }
+  if (e.target.id === 'hideMoved'){ S.moved = 0; save(); renderInstall(); }
   if (e.target.id === 'installNow' && deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; renderInstall(); }
 };
 $('#guideBox').onclick = $('#installBanner').onclick;
