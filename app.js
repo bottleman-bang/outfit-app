@@ -58,7 +58,7 @@ const allModeIds = () => [...BASE_MODES.map(m => m.id), ...(S.kids || []).map(ki
 // 여러 나라 기상 모델 (Open-Meteo 무료 제공). 데이터 없는 모델은 자동으로 빠져요.
 const WX_MODELS = ['ecmwf_ifs025','gfs_seamless','icon_seamless','jma_seamless','kma_seamless','metno_seamless',
   'gem_seamless','meteofrance_seamless','ukmo_seamless','cma_grapes_global'];
-const DAYS = 16, STEP = 3; // 16일 예보, 3시간 간격으로 표시
+const DAYS = 16; // 16일 예보
 
 const ruleOf = (mode, t) => mode.rules.find(([min]) => t >= min)[1];
 const lvFromArr = a => ({outer:a[0], top:a[1], bottom:a[2], extra:a[3]});
@@ -111,6 +111,8 @@ function load(){
   s.useDays ||= 0;
   s.pinged ||= {date:'', keys:[]};
   s.fcTab ||= 'hourly';
+  s.fcStep = {daily: 3, sport: 1, kid: 3, ...(s.fcStep || {})}; // 시간별 예보 간격 (운동은 1시간이 기본)
+  s.periods = (s.periods || ['am','pm','eve']).filter(k => ['dawn','am','pm','eve','night'].includes(k)); if (!s.periods.length) s.periods = ['am','pm','eve'];
   // 위치: 현재 위치(gps) + 저장 지역(places), 날씨는 지역별로 저장
   s.places ||= []; s.wxc ||= {};
   if (!s.locSel){
@@ -157,7 +159,7 @@ const fmtRange = (a, b) => { // 오전 9시~11시 / 오전 9시~오후 6시
 };
 const fmtHour = h => h === 0 || h === 24 ? '자정' : h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h-12}시`;
 const cur = () => MODE[S.mode];
-const whenOf = m => m.when ? (S.when[m.id] || m.when) : null;
+const whenOf = m => { if (!m.when) return null; const k = S.when[m.id]; return k && WHEN[k] && (!WHEN[k].opt || S.periods.includes(k)) ? k : m.when; };
 const hoursOf = m => m.when ? WHEN[whenOf(m)].h : m.hours;
 const shortName = m => m.name.replace(/ \(.*\)/,'');
 const levelsText = (mode, lv) => CATS.filter(c => !(c.k === 'extra' && !lv.extra)).map(c => `${c.label} ${mode.levels[c.k][lv[c.k]].n}`).join(' · ');
@@ -294,7 +296,9 @@ function sky(o){
 
 // 선택한 날짜 + 추천 종류의 활동 시간대 정보
 // 일상복·아이옷은 오전/오후/저녁으로 나눠서 브리핑·추천
-const PERIODS = [{k:'am', label:'오전', h:[9,10]}, {k:'pm', label:'오후', h:[13,15]}, {k:'eve', label:'저녁', h:[18,20]}];
+const PERIODS = [{k:'dawn', label:'새벽', h:[5,7], t:'5~7시'}, {k:'am', label:'오전', h:[9,10], t:'9~10시'}, {k:'pm', label:'오후', h:[13,15], t:'1~3시'},
+  {k:'eve', label:'저녁', h:[18,20], t:'6~8시'}, {k:'night', label:'밤', h:[22,23], t:'10~12시'}];
+const PS = () => PERIODS.filter(p => S.periods.includes(p.k)); // 설정에서 고른 시간대 (기본: 오전·오후·저녁)
 const periodic = m => !m.when;
 const periodLabel = k => (PERIODS.find(p => p.k === k) || {}).label || '';
 function dayInfo(i, mode = cur(), hrs = null){
@@ -338,7 +342,7 @@ function briefing(info, mode){
   // 비·눈
   if (info.mm >= 0.1){
     const adv = snowy ? '미끄럼 조심' : info.mm < 1 ? '작은 우산' : info.mm < 5 ? '우산 챙기기' : '우산 + 방수 신발';
-    items.push([snowy ? '🌨️' : '🌧️', `${w} ${snowy ? r1(info.snow) + 'cm' : r1(info.mm) + 'mm'} (시간당 최대 ${r1(info.mmMax)}mm) · <b>${adv}</b>` +
+    items.push([snowy ? '🌨️' : '🌧️', `${w} ${snowy ? r1(info.snow) + 'cm' : r1(info.mm) + 'mm'} (시간당 최대 ${r1(info.mmMax)}mm)${mode.when ? '' : ` · <b>${adv}</b>`}` +
       (info.pen ? ` · 젖으면 추워서 ${info.pen}° 더 춥게 잡았어요` : '')]);
   } else if (info.p >= 40) items.push(['🌂', `비 올 확률 ${info.p}% · 작은 우산 있으면 안심`]);
 
@@ -373,6 +377,46 @@ function umbrellaAlert(info, mode){
     return {lv: 1, html: `🌂 <b>작은 우산 챙기면 안심</b> · ${info.mm >= 0.1 ? `${when}비 조금 (${r1(info.mm)}mm)` : `비 올 확률 ${info.p}%`}${kid}`};
   return null;
 }
+// 운동별 비·눈·바람 판단 (취소 추천 등). 강수는 활동 시간대의 '시간당 최대' 기준
+function sportAlert(info, mode){
+  const mx = info.mmMax || 0, tot = info.mm || 0, sn = info.snow || 0, p = info.p || 0, w = info.w || 0;
+  const T = (lv, html) => ({lv, html});
+  if (info.code >= 95) return T(3, `⛈️ <b>낙뢰 위험 · ${mode.name} 취소 추천</b>`);
+  switch (mode.id){
+    case 'golf':
+      if (sn >= 0.5) return T(3, `☃️ <b>라운딩 취소·연기 추천</b> · 눈 ${r1(sn)}cm`);
+      if (mx > 2) return T(3, `⛔ <b>라운딩 취소·연기 추천</b> · 시간당 최대 ${r1(mx)}mm (2mm 초과)`);
+      if (mx >= 0.1) return T(2, `☂️ <b>우산 필수</b> · 시간당 최대 ${r1(mx)}mm · 여벌 장갑·수건·비옷`);
+      if (p >= 60) return T(2, `☂️ <b>우산 챙기기</b> · 비 올 확률 ${p}%`);
+      if (p >= 40) return T(1, `🌂 비 올 수도 있어요 (${p}%) · 우산은 카트에`);
+      if (w >= 10) return T(1, `💨 바람 ${Math.round(w)}m/s · 클럽 선택 신경 쓰기`);
+      break;
+    case 'running':
+      if (sn >= 0.5) return T(3, `☃️ <b>길이 미끄러워요 · 실내 러닝 추천</b> · 눈 ${r1(sn)}cm`);
+      if (mx >= 3) return T(3, `⛔ <b>실내 러닝(트레드밀) 추천</b> · 시간당 최대 ${r1(mx)}mm`);
+      if (mx >= 0.5) return T(2, `🌧️ <b>비 맞으며 달리게 돼요</b> · 챙 모자·방수 바람막이, 미끄럼 주의`);
+      if (mx >= 0.1 || p >= 50) return T(1, `🌦️ 가랑비 정도 · 챙 모자 쓰면 괜찮아요`);
+      break;
+    case 'hiking':
+      if (mx >= 1 || tot >= 5) return T(3, `⛔ <b>등산 취소·연기 추천</b> · 비 ${r1(tot)}mm · 바위·흙길이 미끄럽고 계곡 물이 불어요`);
+      if (sn >= 0.5) return T(2, `☃️ <b>아이젠·스패츠 필수</b> · 눈 ${r1(sn)}cm`);
+      if (mx >= 0.1 || p >= 50) return T(2, `☂️ <b>우비·배낭 커버 챙기기</b> · ${mx >= 0.1 ? '비 ' + r1(tot) + 'mm' : '비 올 확률 ' + p + '%'}`);
+      if (w >= 10) return T(2, `💨 <b>능선 바람이 아주 강해요</b> (${Math.round(w)}m/s) · 정상 구간 주의`);
+      break;
+    case 'cycling':
+      if (sn >= 0.1) return T(3, `⛔ <b>라이딩 취소 추천</b> · 눈·결빙 위험`);
+      if (mx >= 0.5) return T(3, `⛔ <b>라이딩 취소·실내 트레이너 추천</b> · 노면이 미끄럽고 제동 거리가 길어져요`);
+      if (mx >= 0.1 || p >= 50) return T(2, `🌦️ <b>젖은 노면 주의</b> · 펜더·방수 자켓, 코너는 천천히`);
+      if (w >= 8) return T(2, `💨 <b>맞바람이 강해요</b> (${Math.round(w)}m/s) · 코스를 짧게`);
+      break;
+    case 'tennis':
+      if (mx >= 0.2 || tot >= 0.5) return T(3, `⛔ <b>야외 코트 취소 추천</b> · 젖은 코트는 미끄러워요 (실내 코트는 OK)`);
+      if (p >= 60) return T(2, `☂️ <b>비 올 확률 ${p}%</b> · 취소될 수 있어요 · 실내 코트 알아두기`);
+      if (w >= 7) return T(1, `💨 바람 ${Math.round(w)}m/s · 공이 많이 흔들려요`);
+      break;
+  }
+  return null;
+}
 function periodLine(inf){
   const parts = [`<b>${feelWord(inf.base)}</b>`];
   if (inf.mm >= 0.1){
@@ -389,7 +433,7 @@ function periodBriefing(main, infos, mode){
   const bases = infos.map(x => x.base);
   const common = br.items.filter(([e]) => !['🌡️','🌧️','🌨️','🌂','💨'].includes(e));
   if (Math.max(...bases) - Math.min(...bases) >= 7) common.unshift(['🌡️', '<b>일교차 커요</b> · 가장 추운 때 기준으로 입고, 벗기 쉬운 겉옷']);
-  return { headline: br.headline, lines: infos.map((inf, j) => ({label: PERIODS[j].label, base: inf.base, kind: inf.sky.kind, text: periodLine(inf)})), items: common };
+  return { headline: br.headline, lines: infos.map((inf, j) => ({label: PS()[j].label, base: inf.base, kind: inf.sky.kind, text: periodLine(inf)})), items: common };
 }
 
 /* ================== 추천 (두께 단계) ================== */
@@ -435,7 +479,12 @@ function recommend(mode, t){
 
 /* ================== 렌더: 오늘 ================== */
 let day = 0, variant = 0, shown = null, shownTemp = null, period = null;
-function defaultPeriod(){ if (day !== 0) return 0; const h = new Date().getHours(); return h < 12 ? 0 : h < 17 ? 1 : 2; }
+function defaultPeriod(){
+  const PP = PS();
+  if (day !== 0) return Math.max(0, PP.findIndex(p => p.k === 'am'));
+  const h = new Date().getHours(), i = PP.findIndex(p => h <= p.h[1]); // 지금 이후 가장 가까운 시간대
+  return i < 0 ? PP.length - 1 : i;
+}
 
 function renderModes(){
   $('#modes').innerHTML = S.modes.map(id => { const m = MODE[id];
@@ -460,7 +509,7 @@ function render(){
   $('#setLocName').textContent = S.loc ? S.loc.full || S.loc.name : '없음';
   renderModes();
   $('#whenTabs').hidden = !mode.when;
-  if (mode.when) $('#whenTabs').innerHTML = Object.entries(WHEN).map(([k, w]) =>
+  if (mode.when) $('#whenTabs').innerHTML = Object.entries(WHEN).filter(([k, w]) => !w.opt || S.periods.includes(k)).map(([k, w]) =>
     `<button class="${whenOf(mode)===k?'on':''}" data-w="${k}">${w.label}</button>`).join('');
   if (W && day >= W.D.length) day = 0;
   const info = W && dayInfo(day);
@@ -477,22 +526,23 @@ function render(){
 
   // 히어로
   const dt = new Date(info.date + 'T00:00'), P = periodic(mode);
-  const infos = P ? PERIODS.map(p => dayInfo(day, mode, p.h)) : null;
+  const PP = PS();
+  const infos = P ? PP.map(p => dayInfo(day, mode, p.h)) : null;
   if (P && infos.some(x => !x)) return; // 데이터 부족
-  if (period == null || period > 2) period = defaultPeriod();
+  if (period == null || period >= PP.length) period = defaultPeriod();
   const sel = P ? infos[period] : info;
   $('#heroDate').innerHTML = `${day === 0 ? '오늘' : day === 1 ? '내일' : ''} ${dt.getMonth()+1}월 ${dt.getDate()}일 (${WD[dt.getDay()]})`.trim() +
     `<span class="addr">📍 ${esc(S.loc.full || S.loc.name)}</span>`;
   $('#heroIcon').innerHTML = wxIcon(sel.sky.kind, 84);
   $('#skyLabel').textContent = sel.sky.label;
-  $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PERIODS[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
+  $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PP[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
   $('#heroSub').textContent = `최저 ${info.tmin}° · 최고 ${info.tmax}°` + (info.now != null ? ` · 지금 ${info.now}°` : '');
-  $('#periods').hidden = !P;
+  $('#periods').hidden = !P; $('#periods').className = `periods n${PP.length}`;
   if (P) $('#periods').innerHTML = infos.map((inf, j) => `<button class="pbtn ${j===period?'on':''}" data-p="${j}">
-      <span class="pl">${PERIODS[j].label} <small>${PERIODS[j].h.map(h => h > 12 ? h - 12 : h).join('~')}시</small></span>
+      <span class="pl">${PP[j].label} <small>${PP[j].t}</small></span>
       ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
       <span class="px">${inf.mm >= 0.1 ? '💧' + r1(inf.mm) + 'mm' : inf.p >= 40 ? '💧' + inf.p + '%' : ''}${inf.w >= 5 ? ' 💨' + Math.round(inf.w) : ''}&nbsp;</span></button>`).join('');
-  const umb = umbrellaAlert(info, mode);
+  const umb = mode.when ? (sportAlert(info, mode) || umbrellaAlert(info, mode)) : umbrellaAlert(info, mode);
   const umbHTML = umb ? `<div class="umb lv${umb.lv}">${umb.html}</div>` : '';
   if (P){
     const pb = periodBriefing(info, infos, mode);
@@ -516,24 +566,27 @@ function render(){
     const cols = infos.map(inf => { const r = recommend(mode, inf.base); return {r, inf, lv: variant ? shift(mode, r.lv, variant) : {...r.lv}}; });
     rec = cols[period].r; shown = cols[period].lv; shownTemp = cols[period].inf.base;
     const cats = CATS.filter(c => c.k !== 'extra' || cols.some(x => x.lv.extra));
-    const [am, pm, ev] = cols.map(x => x.lv), tips = [];
-    if (pm.outer < am.outer || pm.top < am.top) tips.push('☀️ 오후엔 겉옷을 벗거나 가볍게 해도 돼요');
-    if (ev.outer > pm.outer || ev.top > pm.top) tips.push('🌙 저녁엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기');
-    if (!tips.length && cols.every(x => CATS.every(c => x.lv[c.k] === am[c.k]))) tips.push('👍 하루 종일 같은 차림이면 돼요');
+    const tips = []; let lighter = false, warmer = false;
+    for (let j = 1; j < cols.length; j++){
+      const a = cols[j-1].lv, b = cols[j].lv;
+      if (!lighter && (b.outer < a.outer || b.top < a.top)){ lighter = true; tips.push(`☀️ ${PP[j].label}엔 겉옷을 벗거나 가볍게 해도 돼요`); }
+      else if (!warmer && (b.outer > a.outer || b.top > a.top)){ warmer = true; tips.push(`🌙 ${PP[j].label}엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기`); }
+    }
+    if (!tips.length && cols.length > 1) tips.push('👍 하루 종일 같은 차림이면 돼요');
     if (umb) tips.unshift(umb.lv === 2 ? '☂️ 우산 챙기기' + (mode.kid ? ' · 우비·장화' : '') : '🌂 작은 우산');
     $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (tips.length ? `<div class="ptips">${tips.join('<br>')}</div>` : '');
-    $('#recRows').innerHTML = `<div class="pgrid">
+    $('#recRows').innerHTML = `<div class="pgrid n${PP.length}">
       <div class="pcol plab"><div class="ph"></div>${cats.map(c => `<div class="pc"><span class="ce">${c.e}</span>${c.label}</div>`).join('')}</div>
       ${cols.map((x, j) => `<button class="pcol ${j===period?'on':''}" data-p="${j}">
-        <div class="ph"><b>${PERIODS[j].label}</b><span>${x.inf.base}°</span></div>
+        <div class="ph"><b>${PP[j].label}</b><span>${x.inf.base}°</span></div>
         ${cats.map(c => `<div class="pc ${j && x.lv[c.k] !== cols[j-1].lv[c.k] ? 'chg' : ''}"><span class="bars sm">${barsOf(c, x.lv[c.k], true)}</span><b>${mode.levels[c.k][x.lv[c.k]].n}</b></div>`).join('')}
       </button>`).join('')}</div>
-      <div class="pdetail"><b>${PERIODS[period].label} 예시</b>${cats.map(c => { const L = mode.levels[c.k][shown[c.k]];
+      <div class="pdetail"><b>${PP[period].label} 예시</b>${cats.map(c => { const L = mode.levels[c.k][shown[c.k]];
         return `<div>${c.e} ${c.label} <b>${L.n}</b>${L.ex.length ? ' · ' + L.ex.slice(0, 3).map(esc).join(', ') : ''}</div>`; }).join('')}</div>`;
   } else {
     rec = recommend(mode, info.base);
     shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv}; shownTemp = info.base;
-    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (umb ? `<div class="ptips">${umb.lv === 2 ? '☂️ 우산 챙기기' : '🌂 작은 우산'}</div>` : '');
+    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (umb ? `<div class="ptips ${umb.lv === 3 ? 'stop' : ''}">${umb.html}</div>` : '');
     $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
       const i = shown[c.k], L = mode.levels[c.k][i];
       return `<div class="row"><div class="row-label"><span class="ce">${c.e}</span>${c.label}</div>
@@ -543,7 +596,7 @@ function render(){
   }
   document.querySelectorAll('#variants button').forEach(b => b.classList.toggle('on', +b.dataset.v === variant));
   $('#recActions').hidden = !isToday(info);
-  $('#woreBtn').innerHTML = P ? `👍 ${PERIODS[period].label} 차림대로 입었어요` : '👍 이대로 입었어요';
+  $('#woreBtn').innerHTML = P ? `👍 ${PP[period].label} 차림대로 입었어요` : '👍 이대로 입었어요';
 
   renderForecast(W, info);
   renderRate(); renderInstall();
@@ -555,7 +608,8 @@ function render(){
 function renderForecast(W, info){
   document.querySelectorAll('#fcTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.fcTab));
   if (S.fcTab === 'daily') return renderDaily(W);
-  // 오늘은 지금부터 24시간, 다른 날은 그날 0시~21시
+  // 오늘은 지금부터 24시간, 다른 날은 그날 0시부터 24시간 · 간격은 설정에서 (1·2·3시간)
+  const mode = cur(), STEP = S.fcStep[stepGroup(mode)] || 3, [a0, a1] = hoursOf(mode);
   let start;
   if (day === 0){
     const nowH = +W.nowT.slice(11, 13);
@@ -564,6 +618,8 @@ function renderForecast(W, info){
   if (start < 0) start = 0;
   const slots = [];
   for (let k = start; k < W.H.length && slots.length < 24 / STEP; k += STEP) slots.push({h: W.H[k], ag: agg(W.H.slice(k, k + STEP))});
+  // 운동은 고른 활동 시간을 강조
+  const isAct = h => mode.when && h.date === info.date && h.hour + STEP - 1 >= a0 && h.hour <= a1;
   const maxMm = Math.max(2, ...slots.map(s => s.ag.mm));
   const cols = slots.map((s, j) => {
     const {h, ag} = s, sk = sky(ag);
@@ -571,7 +627,7 @@ function renderForecast(W, info){
     const label = j === 0 && day === 0 ? '지금' : h.hour === 0 ? `<b>${h.date === W.D[1]?.date ? '내일' : WD[dt.getDay()] + ' ' + dt.getDate() + '일'}</b>` : `${h.hour}시`;
     const rainTxt = ag.mm >= 0.1 ? (ag.mm >= 10 ? Math.round(ag.mm) : r1(ag.mm)) : ag.p >= 30 ? `<span class="pp">${ag.p}%</span>` : '<span class="dim0">–</span>';
     const windCls = ag.w >= 8 ? 'strong' : ag.w >= 5 ? 'mid' : '';
-    return `<div class="hcol ${h.hour === 0 && j ? 'nd' : ''}">
+    return `<div class="hcol ${h.hour === 0 && j ? 'nd' : ''} ${isAct(h) ? 'act' : ''}">
       <div class="ht">${label}</div>
       <div class="hi">${wxIcon(sk.kind, 36)}</div>
       <div class="hs">${sk.label}</div>
@@ -583,8 +639,11 @@ function renderForecast(W, info){
   $('#fcBody').innerHTML = `<div class="hwrap">
     <div class="hlab"><div class="ht"></div><div class="hi"></div><div class="hs"></div><div class="ha">체감</div><div class="hr">강수<small>mm</small></div><div class="hw">바람<small>m/s</small></div></div>
     <div class="hscroll">${cols}</div></div>
-    <div class="fcnote">3시간 단위 · 강수량은 3시간 합계 · 화살표는 바람이 부는 방향</div>`;
+    <div class="fcnote">${STEP}시간 단위 · 강수량은 ${STEP === 1 ? '시간당' : STEP + '시간 합계'}${mode.when ? ' · 색칠된 칸이 운동 시간' : ''} · 화살표는 바람이 부는 방향 · 간격은 설정에서</div>`;
+  const act = $('#fcBody .hcol.act');
+  if (act) $('#fcBody .hscroll').scrollLeft = Math.max(0, act.offsetLeft - $('#fcBody .hscroll').offsetLeft - 60);
 }
+const stepGroup = m => m.kid ? 'kid' : m.when ? 'sport' : 'daily';
 
 function renderDaily(W){
   const lo = Math.min(...W.D.map(d => d.tmin)), hi = Math.max(...W.D.map(d => d.tmax)), span = Math.max(1, hi - lo);
@@ -731,6 +790,9 @@ function renderHist(){
 
 /* ================== 렌더: 설정 ================== */
 function renderSettings(){
+  $('#stepOpts').innerHTML = [['daily','👗 일상복'], ['sport','⛳ 운동'], ['kid','🧒 아이옷']].map(([g, l]) => `<div class="steprow"><span>${l}</span>
+    <div class="seg2">${[1, 2, 3].map(n => `<button class="${S.fcStep[g] === n ? 'on' : ''}" data-g="${g}" data-n="${n}">${n}시간</button>`).join('')}</div></div>`).join('');
+  $('#periodOpts').innerHTML = PERIODS.map(p => `<button class="chip ${S.periods.includes(p.k) ? 'on' : ''}" data-p="${p.k}">${p.label} <small>${p.t}</small></button>`).join('');
   $('#setModesName').textContent = S.modes.map(id => MODE[id].emoji).join(' ');
   $('#statsSwitch').classList.toggle('on', !!S.stats);
   $('#statsRow').hidden = !GC;
@@ -1071,7 +1133,7 @@ $('#woreBtn').onclick = () => {
   const exist = S.records.find(r => r.date === todayStr() && r.mode === mode.id);
   if (exist && !confirm(`오늘 ${mode.name} 기록이 이미 있어요. 이 옷차림으로 바꿀까요?`)) return;
   S.records = S.records.filter(r => !(r.date === todayStr() && r.mode === mode.id));
-  S.records.push({...newRecord(mode, shown, shownTemp, periodic(mode) ? PERIODS[period].k : null), id: Date.now().toString(36)});
+  S.records.push({...newRecord(mode, shown, shownTemp, periodic(mode) ? PS()[period].k : null), id: Date.now().toString(36)});
   save(); render();
   toast(mode.when ? '기록했어요! 끝나고 어땠는지 알려주세요 🙌' : '기록했어요! 저녁에 어땠는지 알려주세요 🙌');
   track(`wore-recommended/${mode.kid ? 'kid' : mode.id}`, '추천대로 입음');
@@ -1079,7 +1141,7 @@ $('#woreBtn').onclick = () => {
 $('#otherBtn').onclick = () => {
   const mode = cur();
   const r = S.records.find(r => r.date === todayStr() && r.mode === mode.id);
-  openLog(r || newRecord(mode, shown, shownTemp, periodic(mode) ? PERIODS[period].k : null));
+  openLog(r || newRecord(mode, shown, shownTemp, periodic(mode) ? PS()[period].k : null));
 };
 $('#addRecBtn').onclick = () => openLog(newRecord(histFilter !== 'all' ? MODE[histFilter] : cur()));
 $('#histList').onclick = e => { const b = e.target.closest('.rec'); if (b) openLog(S.records.find(r => r.id === b.dataset.id)); };
@@ -1185,6 +1247,18 @@ $('#onb').addEventListener('touchend', e => {
   if (dx < -50 && onbI < onbSlides.length - 1){ onbI++; drawOnb(); } else if (dx > 50 && onbI > 0){ onbI--; drawOnb(); }
 });
 $('#setHelp').onclick = showOnboarding;
+$('#stepOpts').onclick = e => {
+  const b = e.target.closest('[data-g]'); if (!b) return;
+  S.fcStep[b.dataset.g] = +b.dataset.n; save(); renderSettings(); render();
+};
+$('#periodOpts').onclick = e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  const k = b.dataset.p, on = S.periods.includes(k);
+  if (on && S.periods.length === 1) return toast('최소 하나는 있어야 해요');
+  S.periods = PERIODS.map(p => p.k).filter(x => x === k ? !on : S.periods.includes(x));
+  period = null; save(); renderSettings(); render();
+  track(`period/${on ? 'off' : 'on'}-${k}`, '시간대 설정');
+};
 
 /* ---- 시작 ---- */
 startAnalytics();

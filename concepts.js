@@ -5,7 +5,9 @@ window.WHEN = {
   morning: { label: '아침', h: [6, 10] },
   day:     { label: '낮',   h: [10, 16] },
   evening: { label: '저녁', h: [17, 21] },
+  night:   { label: '밤',   h: [20, 23], opt: true },  // 설정에서 '밤'을 켜면 보여요
 };
+window.WHEN = { dawn: { label: '새벽', h: [5, 8], opt: true }, ...window.WHEN }; // 설정에서 '새벽'을 켜면 보여요
 
 window.CATS = [
   { k: 'outer',  label: '겉옷', e: '🧥', none: true },   // 0단계 = 없음

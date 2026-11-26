@@ -87,6 +87,13 @@ input{font:inherit;color:inherit}
 .pbtn.on{background:var(--card);border-color:hsl(var(--h) 40% 78%);color:var(--ink)}
 .pbtn .pl{font-size:13.5px;font-weight:800}
 .pbtn .pl small{font-weight:600;opacity:.6;font-size:11px}
+.periods.n4 .pl small,.periods.n5 .pl small{display:block;margin-top:-1px}
+.periods.n5{gap:4px}.periods.n5 .pbtn{padding:7px 0 6px}.periods.n5 .pbtn b{font-size:17px}.periods.n5 .wxi{width:28px;height:28px}
+.periods.n4 .pbtn b{font-size:18px}.periods.n4 .wxi{width:30px;height:30px}
+.pgrid.n4 .pc b{font-size:13px}
+.pgrid.n5{gap:2px}.pgrid.n5 .pcol{padding:0 0 4px}.pgrid.n5 .plab{width:44px}.pgrid.n5 .plab .pc{font-size:11px;padding-left:2px}
+.pgrid.n5 .pc b{font-size:12px}.pgrid.n5 .ph b{font-size:13.5px}.pgrid.n5 .bars.sm i{width:4px}
+.chips .chip small{font-weight:600;opacity:.7;font-size:12px}
 .pbtn b{font-size:20px;font-weight:800;line-height:1.1}
 .pbtn .px{font-size:11.5px;opacity:.75;font-weight:600;min-height:14px}
 .pline{display:flex;gap:8px;align-items:baseline;font-size:14px;line-height:1.5;padding:3px 0}
@@ -105,6 +112,8 @@ input{font:inherit;color:inherit}
 .pc b{font-size:14.5px;font-weight:800;line-height:1.15;word-break:keep-all}
 .pc.chg b{color:var(--acc-ink)}
 .bars.sm{height:16px;gap:2px}.bars.sm i{width:5px}
+.ptips.stop{background:#F8E1D8;color:#8C3F2A}
+@media (prefers-color-scheme: dark){ .ptips.stop{background:#4A2E26;color:#F4C9B9} }
 .ptips{margin-top:8px;color:var(--ink);font-weight:600;font-size:13.5px;line-height:1.6;background:var(--soft);border-radius:12px;padding:8px 11px}
 .pdetail{margin-top:12px;font-size:13.5px;color:var(--sub);line-height:1.7;background:var(--soft);border-radius:14px;padding:10px 12px}
 .pdetail b{color:var(--ink)}
@@ -151,6 +160,10 @@ input{font:inherit;color:inherit}
 .hscroll::-webkit-scrollbar{display:none}
 .hcol{flex:none;width:60px;text-align:center}
 .hcol.nd{border-left:1.5px dashed var(--line)}
+.hcol.act{background:hsl(var(--h) 50% 94%);border-radius:12px}
+@media (prefers-color-scheme: dark){ .hcol.act{background:hsl(var(--h) 18% 22%)} }
+.steprow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);font-weight:700;font-size:15px}
+.steprow:first-child{border-top:0}
 .ht,.hi,.hs,.ha,.hr,.hw{display:flex;flex-direction:column;align-items:center;justify-content:center}
 .ht{height:22px;font-size:13px;font-weight:600;color:var(--sub)}
 .ht b{color:var(--ink);font-size:12.5px}
@@ -270,8 +283,9 @@ input{font:inherit;color:inherit}
 .sel{display:block;width:100%;border:0;background:none;font:inherit;font-size:18px;font-weight:700;padding:4px 0 0;outline:none;color:var(--ink);-webkit-appearance:none;appearance:none}
 .umb{border-radius:14px;padding:10px 12px;margin-bottom:10px;font-size:14px;line-height:1.5}
 .umb.lv2{background:#DCEBF7;color:#2E5272}
+.umb.lv3{background:#F8DED5;color:#8C3F2A}
 .umb.lv1{background:rgba(220,235,247,.6);color:#3C5D7A}
-@media (prefers-color-scheme: dark){ .umb.lv2{background:#2A3B4A;color:#CFE3F4} .umb.lv1{background:#26323C;color:#C4D8E8} }
+@media (prefers-color-scheme: dark){ .umb.lv3{background:#4A2E26;color:#F4C9B9} .umb.lv2{background:#2A3B4A;color:#CFE3F4} .umb.lv1{background:#26323C;color:#C4D8E8} }
 
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#45403B;color:#fff;
   padding:12px 18px;border-radius:14px;font-weight:700;font-size:14.5px;opacity:0;transition:.25s;z-index:20;pointer-events:none;white-space:nowrap}
@@ -369,6 +383,16 @@ input{font:inherit;color:inherit}
       <button class="set-item" id="setGps">🛰️ 현재 위치로 자동 설정</button>
     </div>
     <div class="card">
+      <h2 style="font-size:17px;margin-bottom:6px">🕒 보여줄 시간대</h2>
+      <div class="why" style="margin-bottom:10px">일상복·아이옷 브리핑과 옷 추천을 나눠 볼 시간대예요. 새벽·밤을 켜면 운동 시간 선택에도 생겨요.</div>
+      <div class="chips" id="periodOpts"></div>
+    </div>
+    <div class="card">
+      <h2 style="font-size:17px;margin-bottom:6px">📊 시간별 예보 간격</h2>
+      <div class="why" style="margin-bottom:6px">시간별 예보(체감온도·강수량·바람)를 몇 시간 간격으로 볼지 골라요. 운동은 1시간이 기본이에요.</div>
+      <div id="stepOpts"></div>
+    </div>
+    <div class="card">
       <h2 style="font-size:17px;margin-bottom:6px">💾 백업</h2>
       <div class="why" style="margin:0">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 앱을 지우기 전에 백업해 두세요.</div>
       <button class="set-item" id="exportBtn">백업 파일 저장하기 <span>⬇︎</span></button>
@@ -384,7 +408,7 @@ input{font:inherit;color:inherit}
     <div class="card help">
       <h2 style="font-size:17px">🧠 추천은 어떻게 하나요?</h2>
       <p style="margin:0 0 10px"><b>날씨</b> · 유럽·미국·독일·일본·영국·프랑스·캐나다·중국 등 세계 여러 기상 모델의 예보를 모아 튀는 값을 빼고 평균을 내요.
-      바람은 체감온도에 이미 들어가 있고, 비가 오면 젖어서 더 춥기 때문에 1~2° 더 춥게 잡아요. 최대 16일까지 볼 수 있어요.<br>☂️ <b>우산 알림</b> · 비 1mm 이상 또는 확률 60% 이상이면 "우산 꼭", 0.1mm 이상 또는 40% 이상이면 "작은 우산", 눈 0.5cm 이상이면 "우산 + 미끄럼 주의"를 알려드려요.</p>
+      바람은 체감온도에 이미 들어가 있고, 비가 오면 젖어서 더 춥기 때문에 1~2° 더 춥게 잡아요. 최대 16일까지 볼 수 있어요.<br>☂️ <b>우산 알림</b> · 비 1mm 이상 또는 확률 60% 이상이면 "우산 꼭", 0.1mm 이상 또는 40% 이상이면 "작은 우산", 눈 0.5cm 이상이면 "우산 + 미끄럼 주의"를 알려드려요.<br>⛳ <b>운동별 판단</b> (활동 시간대의 시간당 최대 강수 기준) · 골프: 2mm 이하 우산 필수, 2mm 초과 취소·연기 추천 · 러닝: 3mm 이상 실내 러닝 · 등산: 1mm 이상(또는 합계 5mm) 취소·연기 · 자전거: 0.5mm 이상 취소 · 테니스: 비 오면 야외 코트 취소 · 천둥번개는 모두 취소 추천</p>
       <p style="margin:0"><b>옷</b> · 겉옷·상의·하의·방한 소품의 <b>두께</b>를 추천해요. 입은 두께를 기록하고 <b>🥶 추웠어 / 😊 딱 좋아 / 🥵 더웠어</b>를 남기면,
       추웠던 날은 한 단계 따뜻하게, 더웠던 날은 한 단계 가볍게 고쳐서 배워요. 종류(일상·골프·아이 등)마다 따로 배워요.</p>
     </div>
