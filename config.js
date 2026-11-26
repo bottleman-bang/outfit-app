@@ -6,7 +6,7 @@ window.APP_CONFIG = {
   // 카카오 JavaScript 키 (국내 도로명·장소 검색 정확도 향상). 비워두면 앱 내장 행정구역 + OpenStreetMap으로 검색해요.
   kakaoKey: '',
   // 새 공유 주소 (예: 'https://morningpick.pages.dev/'). 정해지면 예전 주소로 들어온 사람은 기록과 함께 여기로 옮겨져요.
-  canonical: '',
+  canonical: 'https://morningpick.pages.dev/',
   // 뉴스·증시·Daily Up 데이터 (outfit-data 저장소가 15분마다 만들어요)
   dataUrl: 'https://raw.githubusercontent.com/bottleman-bang/outfit-data/data/',
 };
