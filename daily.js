@@ -247,8 +247,9 @@ async function renderDailyUp(force){
     try { D = await loadData('daily', force); } catch(e){ if (!D){ el.innerHTML = '<div class="empty"><div class="e">📡</div>불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; } }
   } else if (Date.now() - (dcLoad('daily')?.at || 0) > 8 * 60e3) loadData('daily').then(() => { if ($('#v-daily').classList.contains('on') && !talkBusy) renderDailyUp(); }).catch(() => {});
   $('#duUpd').textContent = '매일 아침 6시에 새로 나와요';
-  const parts = [S.talkOn !== false ? talkCard(D) : '', S.tipOn !== false ? tipCard(D) : ''].join('');
-  el.innerHTML = (parts || '<div class="empty"><div class="e">🌱</div>설정 → Daily Up에서 보고 싶은 메뉴를 켜 주세요</div>') +
+  const parts = [S.talkOn !== false ? talkCard(D) : '', S.tipOn !== false ? tipCard(D) : ''].filter(Boolean);
+  el.innerHTML = (parts.length ? `<div class="cols${parts.length < 2 ? ' one' : ''}">${parts.map(x => `<div class="col">${x}</div>`).join('')}</div>`
+    : '<div class="empty"><div class="e">🌱</div>설정 → Daily Up에서 보고 싶은 메뉴를 켜 주세요</div>') +
     '<p class="disc">💬 질문·해설·모범 답안과 🥄 AI 한 스푼은 매일 아침 AI(Gemini)가 만들어요 · 첨삭은 무료 공개 AI(Pollinations)가 해요 · AI 설명은 틀릴 수 있어요</p>';
   talkCount();
   trackDaily('tab/daily', 'Daily Up 탭');

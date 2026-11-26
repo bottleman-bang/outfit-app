@@ -125,11 +125,12 @@ function heat(p){
   const L = dark ? 26 + 14 * i : 88 - 40 * i;
   return [`hsl(${hue} ${p > 0 ? 62 : 58}% ${L}%)`, (dark || i > 0.55) ? '#fff' : 'var(--ink)'];
 }
+let mapW = 0, mapT;   // 마켓맵 너비 (폴드 접고 펼칠 때만 다시 그리기)
 function renderMap(M, mkt){
   const box = $('#mkMap'); if (!box) return;
   const list = mkt === 'kr' ? (M.kr?.map || []).filter(x => x.cap) : (M.us?.map || []);
   if (!list.length){ box.innerHTML = '<div class="empty" style="padding:30px">데이터가 없어요</div>'; return; }
-  const W = box.clientWidth || 340, H = Math.round(Math.min(460, Math.max(300, W * 1.05)));
+  const W = box.clientWidth || 340, H = Math.round(Math.min(460, Math.max(300, W * 1.05))); mapW = W;
   box.style.height = H + 'px';
   const groups = {};
   list.forEach(x => (groups[x.sector] ||= []).push(x));
@@ -210,7 +211,7 @@ async function renderMarket(force){
       <span class="mc ${updn(c.pct)}">${pctTxt(c.pct)}</span></div>`; }).join('');
   const fg = M.crypto?.fg;
   const mkt = S.mapMkt || S.mkt || 'kr', tk = S.topKind || 'value', tm = S.topMkt || S.mkt || 'kr';
-  el.innerHTML = `
+  el.innerHTML = `<div class="cols"><div class="col">
     <section class="card mbrief"><div class="tt">📌 시장 한눈에 <span class="badge">${M.ai && M.brief?.length ? 'AI 요약' : '자동 정리'}</span></div>
       <ul>${brief.map(l => `<li>${l}</li>`).join('')}</ul></section>
     ${commentaryCard(M)}
@@ -227,6 +228,7 @@ async function renderMarket(force){
         <div><div class="rg">기준금리</div>${(mac.standardInterest || []).map(x => `<div class="mrw"><span class="mn">${esc(x.name.replace('미국연방준비은행', '미국 연준'))}</span><span class="mv">${fmt(x.price, 2)}%</span><span class="mc fl"></span></div>`).join('')}</div>
       </div></section>
     <section class="card"><h2>🪙 코인 ${fg ? `<span class="fgb">공포탐욕 ${fg.value} · ${FG_KO(fg.value)}</span>` : ''}</h2>${coins}</section>
+    </div><div class="col">
     <section class="card"><div class="mhead"><h2>🗺️ 마켓맵</h2><div class="seg2" id="mapTabs"><button data-m="kr" class="${mkt === 'kr' ? 'on' : ''}">국내</button><button data-m="us" class="${mkt === 'us' ? 'on' : ''}">미국</button></div></div>
       <div class="why" style="margin:0 0 8px">크기는 시가총액, 색은 오늘 등락률이에요 · 칸을 누르면 자세히</div>
       <div class="tmap" id="mkMap"></div><div class="tmleg"><span class="dn">−4%</span><span class="lg"></span><span class="up">+4%</span></div></section>
@@ -235,6 +237,7 @@ async function renderMarket(force){
       <div id="topList">${topRows(((tm === 'kr' ? M.kr : M.us)?.top || {})[tk], tm)}</div>
       <div class="why" style="margin:8px 0 0;font-size:12.5px">${tm === 'kr' ? '상승·하락은 거래대금 100억 원 이상 종목 기준' : '상승·하락은 시가총액 50억 달러 이상 종목 기준'}</div></section>
     <section class="card"><h2>📅 이번 주 경제 일정</h2>${calRows(M)}</section>
+    </div></div>
     <p class="disc">투자 참고용이며 투자 권유가 아니에요. 데이터는 네이버 증권·Nasdaq·CoinGecko·Upbit·ForexFactory 등 무료 공개 자료이고 15분 이상 늦을 수 있어요.</p>`;
   renderMap(M, mkt);
   trackDaily('tab/market', '증시 탭');
@@ -252,7 +255,9 @@ document.addEventListener('click', e => {
     $('#tipBox').classList.add('on'); clearTimeout(renderMarket.tt); renderMarket.tt = setTimeout(() => $('#tipBox').classList.remove('on'), 4500);
   }
 });
-addEventListener('resize', () => { if ($('#v-market')?.classList.contains('on')){ const M = dcLoad('market')?.data; if (M) renderMap(M, S.mapMkt || S.mkt || 'kr'); } });
+addEventListener('resize', () => { clearTimeout(mapT); mapT = setTimeout(() => {
+  const box = $('#mkMap'); if (!box || !$('#v-market')?.classList.contains('on') || Math.abs(box.clientWidth - mapW) < 4) return;
+  const M = dcLoad('market')?.data; if (M) renderMap(M, S.mapMkt || S.mkt || 'kr'); }, 150); });
 
 /* ---- AI 시장 해설 ---- */
 function commentaryCard(M){
