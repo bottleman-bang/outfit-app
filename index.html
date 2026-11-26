@@ -119,6 +119,13 @@ input{font:inherit;color:inherit}
 .pc b{font-size:14.5px;font-weight:800;line-height:1.15;word-break:keep-all}
 .pc.chg b{color:var(--acc-ink)}
 .bars.sm{height:16px;gap:2px}.bars.sm i{width:5px}
+.total{background:var(--soft);border-radius:16px;padding:12px 14px;margin:6px 0 10px;font-size:14.5px;line-height:1.55}
+.total .tt{font-weight:800;font-size:12.5px;color:var(--sub);margin-bottom:3px}
+.total ul{margin:7px 0 0;padding:0;list-style:none}
+.total li{font-size:13.5px;line-height:1.5;padding:3px 0;border-top:1px dashed var(--line)}
+.total li.stop{color:#8C3F2A;font-weight:600}.total li.umbl{color:#2E5272}
+@media (prefers-color-scheme: dark){ .total li.stop{color:#F4C9B9} .total li.umbl{color:#CFE3F4} }
+.bsub{font-size:12.5px;font-weight:800;opacity:.65;margin:2px 0 3px}
 .ptips.stop{background:#F8E1D8;color:#8C3F2A}
 @media (prefers-color-scheme: dark){ .ptips.stop{background:#4A2E26;color:#F4C9B9} }
 .ptips{margin-top:8px;color:var(--ink);font-weight:600;font-size:13.5px;line-height:1.6;background:var(--soft);border-radius:12px;padding:8px 11px}
@@ -347,6 +354,7 @@ input{font:inherit;color:inherit}
 
     <section class="card" id="recCard">
       <h2 id="recTitle">오늘은 이렇게 입어요</h2>
+      <div id="recTotal"></div>
       <div class="why" id="recWhy"></div>
       <div id="recRows"></div>
       <div class="variants" id="variants">
@@ -391,7 +399,7 @@ input{font:inherit;color:inherit}
     </div>
     <div class="card">
       <h2 style="font-size:17px;margin-bottom:6px">🕒 보여줄 시간대</h2>
-      <div class="why" style="margin-bottom:10px">일상복·아이옷 브리핑과 옷 추천을 나눠 볼 시간대예요. 새벽·밤을 켜면 운동 시간 선택에도 생겨요.</div>
+      <div class="why" style="margin-bottom:10px">일상복·아이옷의 시간대 칸·브리핑·옷 추천에 쓰여요. 새벽·밤을 켜면 운동 시간 칸에도 생겨요.</div>
       <div class="chips" id="periodOpts"></div>
     </div>
     <div class="card">

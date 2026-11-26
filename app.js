@@ -295,10 +295,10 @@ function sky(o){
 }
 
 // 선택한 날짜 + 추천 종류의 활동 시간대 정보
-// 일상복·아이옷은 오전/오후/저녁으로 나눠서 브리핑·추천
-const PERIODS = [{k:'dawn', label:'새벽', h:[5,7], t:'5~7시'}, {k:'am', label:'오전', h:[9,10], t:'9~10시'}, {k:'pm', label:'오후', h:[13,15], t:'1~3시'},
+// 일상복·아이옷은 아침/낮/저녁으로 나눠서 브리핑·추천
+const PERIODS = [{k:'dawn', label:'새벽', h:[5,7], t:'5~7시'}, {k:'am', label:'아침', h:[9,10], t:'9~10시'}, {k:'pm', label:'낮', h:[13,15], t:'1~3시'},
   {k:'eve', label:'저녁', h:[18,20], t:'6~8시'}, {k:'night', label:'밤', h:[22,23], t:'10~12시'}];
-const PS = () => PERIODS.filter(p => S.periods.includes(p.k)); // 설정에서 고른 시간대 (기본: 오전·오후·저녁)
+const PS = () => PERIODS.filter(p => S.periods.includes(p.k)); // 설정에서 고른 시간대 (기본: 아침·낮·저녁)
 const periodic = m => !m.when;
 const periodLabel = k => (PERIODS.find(p => p.k === k) || {}).label || '';
 function dayInfo(i, mode = cur(), hrs = null){
@@ -318,6 +318,9 @@ function dayInfo(i, mode = cur(), hrs = null){
 const isToday = info => info && info.date === todayStr();
 
 /* ================== 체감 브리핑 ================== */
+function feelDaga(t){ // 쌀쌀하다가, 춥다가 …
+  return t <= -5 ? '아주 춥다가' : t <= 3 ? '춥다가' : t <= 9 ? '쌀쌀하다가' : t <= 15 ? '선선하다가' : t <= 21 ? '포근하다가' : t <= 26 ? '따뜻하다가' : t <= 30 ? '덥다가' : '무덥다가';
+}
 function feelWord(t){
   return t <= -5 ? '아주 추워요' : t <= 3 ? '추워요' : t <= 9 ? '쌀쌀해요' : t <= 15 ? '선선해요' :
     t <= 21 ? '포근해요' : t <= 26 ? '따뜻해요' : t <= 30 ? '더워요' : '무더워요';
@@ -428,12 +431,70 @@ function periodLine(inf){
   if (inf.pen) parts.push(`비 감안 −${inf.pen}°`);
   return parts.join(' · ');
 }
+// 시간 흐름에 따라 느껴질 체감 (아침→낮→저녁)
+function flowBrief(PP, infos){
+  const n = infos.length, b = infos.map(x => x.base), out = [];
+  if (n < 2) return out;
+  const mx = Math.max(...b), mn = Math.min(...b), iMax = b.indexOf(mx), iMin = b.indexOf(mn), L = j => PP[j].label;
+  if (iMax > 0 && mx - b[0] >= 5)
+    out.push(['🌡️', `${L(0)} ${b[0]}°로 ${feelDaga(b[0])} ${L(iMax)}엔 ${mx}°까지 올라요 · <b>${L(0)} 옷 그대로면 ${L(iMax)}엔 덥게</b> 느껴질 수 있어요`]);
+  else if (iMax > 0 && mx - b[0] >= 3) out.push(['🌡️', `${L(iMax)}엔 ${mx - b[0]}° 정도 포근해져요`]);
+  if (iMax < n - 1 && mx - b[n - 1] >= 4)
+    out.push(['🌇', `${L(n - 1)}엔 ${mx - b[n - 1]}° 떨어져 ${b[n - 1]}° · <b>${L(iMax)}에 벗은 겉옷 다시 입기</b>`]);
+  if (mx - mn <= 2) out.push(['🌡️', `하루 종일 체감 ${mn}~${mx}°로 비슷해요`]);
+  for (let j = 1; j < n; j++) if (infos[j].w >= 5 && infos[j].w - infos[j - 1].w >= 3){
+    out.push(['💨', `${L(j)}부터 바람이 세져(${Math.round(infos[j].w)}m/s) <b>숫자보다 더 춥게</b> 느껴져요`]); break; }
+  const wetI = infos.map(x => x.mm >= 0.1);
+  for (let j = 1; j < n; j++){
+    if (wetI[j] && !wetI[j - 1]){ out.push(['🌧️', `${L(j)}부터 비 · 젖으면 체감이 1~2° 더 떨어져요`]); break; }
+    if (!wetI[j] && wetI[j - 1]){ out.push(['🌤️', `${L(j)}엔 비가 그쳐요`]); break; }
+  }
+  const mid = infos[PP.findIndex(p => p.k === 'pm')];
+  if (mid && clearSky(mid) && mid.uv >= 4 && mid.base >= 12) out.push(['☀️', '낮 햇볕 아래선 숫자보다 더 따뜻하게 느껴져요 · 그늘·실내는 선선해요']);
+  else if (infos.every(x => x.sky.label === '흐림') && mx <= 12) out.push(['☁️', '해가 안 나서 하루 종일 으슬으슬할 수 있어요']);
+  if (mx <= 5) out.push(['🏠', '실내는 난방으로 따뜻해요 · 들어가면 벗기 쉬운 겉옷']);
+  else if (mn >= 27) out.push(['🏠', '실내 냉방이 세요 · 얇은 겉옷 하나 챙기기']);
+  return out.slice(0, 5);
+}
+// 옷차림 한 줄 정리 (겉옷·상의·하의를 넘어 전체 요약)
+function totalBrief(mode, infos, cols, PP, umb){
+  const lines = [], b = infos.map(x => x.base), mx = Math.max(...b), mn = Math.min(...b), L = j => PP ? PP[j].label : '';
+  let main;
+  if (PP && cols){
+    const lv = cols.map(c => c.lv), varying = lv.some(x => x.outer !== lv[0].outer || x.top !== lv[0].top);
+    const maxO = Math.max(...lv.map(x => x.outer)), O = mode.levels.outer;
+    const easy = [...(O[maxO].ex.slice(-1)), ...(maxO > 1 ? O[maxO - 1].ex.slice(0, 1) : [])].filter(Boolean).join('·');
+    if (varying || mx - mn >= 5)
+      main = `${L(b.indexOf(mn))}·${L(b.indexOf(mx))} 체감 차이가 ${mx - mn}°라 <b>입었다 벗었다 하기 좋은 옷</b>으로 추천드려요 · 얇은 옷을 겹쳐 입고${easy ? `, 벗어서 들기 쉬운 겉옷(${easy})` : ''}`;
+    else if (mx <= 5) main = '하루 종일 추워요 · <b>따뜻하게 껴입고</b> 목·손까지 보온하세요';
+    else if (mn >= 26) main = '하루 종일 더워요 · <b>통풍 잘 되는 얇은 옷</b> 위주로, 실내 냉방 대비 얇은 겉옷 하나';
+    else main = `하루 종일 비슷해요 · <b>겉옷은 '${O[lv[0].outer].n}', 상의는 '${mode.levels.top[lv[0].top].n}'</b> 정도면 충분해요`;
+    let lighter = false, warmer = false;
+    for (let j = 1; j < lv.length; j++){
+      const a = lv[j - 1], c = lv[j];
+      if (!lighter && (c.outer < a.outer || c.top < a.top)){ lighter = true; lines.push(`☀️ ${L(j)}엔 겉옷을 벗거나 가볍게 해도 돼요`); }
+      else if (!warmer && (c.outer > a.outer || c.top > a.top)){ warmer = true; lines.push(`🌙 ${L(j)}엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기`); }
+    }
+  } else {
+    const i = infos[0], d = i.amax - i.amin;
+    main = d >= 5 ? `운동하는 동안 체감이 ${i.amin}~${i.amax}°로 변해요 · <b>벗기 쉬운 겹쳐 입기</b>로 추천드려요`
+                  : `운동하는 동안 체감이 ${i.amin}~${i.amax}°로 비슷해요 · 추천 두께 그대로면 돼요`;
+    const sp = {golf: '⛳ 라운딩 4~5시간 · 바람막이는 카트에 두고 필요할 때 입기', running: '🏃 뛰고 나면 땀이 식어 추워요 · 마치고 걸칠 겉옷 하나',
+      hiking: '⛰️ 오를 땐 덥고 쉴 땐 추워요 · 쉴 때 입을 겉옷은 배낭 맨 위에', cycling: '🚴 출발할 땐 살짝 춥게 · 바람막이는 접어서 등 주머니에',
+      tennis: '🎾 게임 전후로 걸칠 겉옷 · 땀 닦을 수건과 여벌 티셔츠'}[mode.id];
+    if (sp) lines.push(sp);
+  }
+  if (infos.some(x => x.w >= 7)) lines.push('💨 바람이 세요 · 바람 막아주는 겉옷(바람막이·자켓)');
+  if (mode.kid) lines.push('🧒 아이는 땀을 많이 흘려요 · 벗기 쉬운 겉옷 + 여벌 옷');
+  if (umb) lines.unshift({stop: umb.lv === 3, html: umb.html});
+  return `<div class="total"><div class="tt">💡 옷차림 한 줄 정리</div><div>${main}</div>` +
+    (lines.length ? `<ul>${lines.map(l => typeof l === 'string' ? `<li>${l}</li>` : `<li class="${l.stop ? 'stop' : 'umbl'}">${l.html}</li>`).join('')}</ul>` : '') + '</div>';
+}
 function periodBriefing(main, infos, mode){
   const br = briefing(main, mode);
   const bases = infos.map(x => x.base);
   const common = br.items.filter(([e]) => !['🌡️','🌧️','🌨️','🌂','💨'].includes(e));
-  if (Math.max(...bases) - Math.min(...bases) >= 7) common.unshift(['🌡️', '<b>일교차 커요</b> · 가장 추운 때 기준으로 입고, 벗기 쉬운 겉옷']);
-  return { headline: br.headline, lines: infos.map((inf, j) => ({label: PS()[j].label, base: inf.base, kind: inf.sky.kind, text: periodLine(inf)})), items: common };
+  return { headline: br.headline, flow: flowBrief(PS(), infos), lines: infos.map((inf, j) => ({label: PS()[j].label, base: inf.base, kind: inf.sky.kind, text: periodLine(inf)})), items: common };
 }
 
 /* ================== 추천 (두께 단계) ================== */
@@ -508,9 +569,7 @@ function render(){
   renderLocs();
   $('#setLocName').textContent = S.loc ? S.loc.full || S.loc.name : '없음';
   renderModes();
-  $('#whenTabs').hidden = !mode.when;
-  if (mode.when) $('#whenTabs').innerHTML = Object.entries(WHEN).filter(([k, w]) => !w.opt || S.periods.includes(k)).map(([k, w]) =>
-    `<button class="${whenOf(mode)===k?'on':''}" data-w="${k}">${w.label}</button>`).join('');
+  $('#whenTabs').hidden = true;
   if (W && day >= W.D.length) day = 0;
   const info = W && dayInfo(day);
   if (!info){
@@ -537,7 +596,16 @@ function render(){
   $('#skyLabel').textContent = sel.sky.label;
   $('#bigTemp').innerHTML = `${sel.base}°<small>${P ? PP[period].label + ' ' : mode.when ? WHEN[whenOf(mode)].label + ' ' : ''}체감${sel.pen ? ` · 비 감안 −${sel.pen}°` : ''}</small>`;
   $('#heroSub').textContent = `최저 ${info.tmin}° · 최고 ${info.tmax}°` + (info.now != null ? ` · 지금 ${info.now}°` : '');
-  $('#periods').hidden = !P; $('#periods').className = `periods n${PP.length}`;
+  const tileHTML = (inf, label, t, on, attr) => `<button class="pbtn ${on ? 'on' : ''}" ${attr}>
+      <span class="pl">${label} <small>${t}</small></span>
+      ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
+      <span class="px">${inf.mm >= 0.1 ? '💧' + r1(inf.mm) + 'mm' : inf.p >= 40 ? '💧' + inf.p + '%' : ''}${inf.w >= 5 ? ' 💨' + Math.round(inf.w) : ''}&nbsp;</span></button>`;
+  if (!P){ // 운동: 아침·낮·저녁(+새벽·밤) 중 운동 시간을 칸으로 골라요
+    const SW = Object.entries(WHEN).filter(([k, w]) => !w.opt || S.periods.includes(k)), wk = whenOf(mode);
+    $('#periods').hidden = false; $('#periods').className = `periods n${SW.length}`;
+    $('#periods').innerHTML = SW.map(([k, w]) => { const inf = dayInfo(day, mode, w.h); return inf ? tileHTML(inf, w.label, w.t, k === wk, `data-w="${k}"`) : ''; }).join('');
+  }
+  if (P){ $('#periods').hidden = false; $('#periods').className = `periods n${PP.length}`; }
   if (P) $('#periods').innerHTML = infos.map((inf, j) => `<button class="pbtn ${j===period?'on':''}" data-p="${j}">
       <span class="pl">${PP[j].label} <small>${PP[j].t}</small></span>
       ${wxIcon(inf.sky.kind, 34)}<b>${inf.base}°</b>
@@ -548,6 +616,7 @@ function render(){
     const pb = periodBriefing(info, infos, mode);
     $('#brief').innerHTML = umbHTML + `<div class="headline">${pb.headline}</div>` +
       pb.lines.map(l => `<div class="pline"><span class="pll">${l.label}</span><span class="plt">${l.base}°</span><span>${l.text}</span></div>`).join('') +
+      (pb.flow.length ? '<div class="bsep"></div><div class="bsub">⏱️ 시간에 따라 이렇게 느껴져요</div>' + pb.flow.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('') : '') +
       (pb.items.length ? '<div class="bsep"></div>' : '') +
       pb.items.map(([e, t]) => `<div class="bi"><span class="be">${e}</span><span>${t}</span></div>`).join('');
   } else {
@@ -572,9 +641,8 @@ function render(){
       if (!lighter && (b.outer < a.outer || b.top < a.top)){ lighter = true; tips.push(`☀️ ${PP[j].label}엔 겉옷을 벗거나 가볍게 해도 돼요`); }
       else if (!warmer && (b.outer > a.outer || b.top > a.top)){ warmer = true; tips.push(`🌙 ${PP[j].label}엔 다시 쌀쌀해져요 · 겉옷 꼭 챙기기`); }
     }
-    if (!tips.length && cols.length > 1) tips.push('👍 하루 종일 같은 차림이면 돼요');
-    if (umb) tips.unshift(umb.lv === 2 ? '☂️ 우산 챙기기' + (mode.kid ? ' · 우비·장화' : '') : '🌂 작은 우산');
-    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (tips.length ? `<div class="ptips">${tips.join('<br>')}</div>` : '');
+    $('#recTotal').innerHTML = totalBrief(mode, infos, cols, PP, umb);
+    $('#recWhy').innerHTML = variant ? varWhy : rec.why;
     $('#recRows').innerHTML = `<div class="pgrid n${PP.length}">
       <div class="pcol plab"><div class="ph"></div>${cats.map(c => `<div class="pc"><span class="ce">${c.e}</span>${c.label}</div>`).join('')}</div>
       ${cols.map((x, j) => `<button class="pcol ${j===period?'on':''}" data-p="${j}">
@@ -586,7 +654,8 @@ function render(){
   } else {
     rec = recommend(mode, info.base);
     shown = variant ? shift(mode, rec.lv, variant) : {...rec.lv}; shownTemp = info.base;
-    $('#recWhy').innerHTML = (variant ? varWhy : rec.why) + (umb ? `<div class="ptips ${umb.lv === 3 ? 'stop' : ''}">${umb.html}</div>` : '');
+    $('#recTotal').innerHTML = totalBrief(mode, [info], null, null, umb);
+    $('#recWhy').innerHTML = variant ? varWhy : rec.why;
     $('#recRows').innerHTML = CATS.filter(c => !(c.k === 'extra' && !shown.extra)).map(c => {
       const i = shown[c.k], L = mode.levels[c.k][i];
       return `<div class="row"><div class="row-label"><span class="ce">${c.e}</span>${c.label}</div>
@@ -1091,7 +1160,7 @@ function useGPS(){
 
 /* ---- 이벤트 ---- */
 const selectDay = i => { day = i; variant = 0; period = defaultPeriod(); render(); };
-$('#periods').onclick = e => { const b = e.target.closest('.pbtn'); if (b){ period = +b.dataset.p; render(); } };
+$('#periods').onclick = e => { const b = e.target.closest('.pbtn'); if (!b) return; if (b.dataset.w){ S.when[S.mode] = b.dataset.w; save(); variant = 0; } else period = +b.dataset.p; render(); };
 $('#recRows').onclick = e => { const b = e.target.closest('.pcol[data-p]'); if (b){ period = +b.dataset.p; render(); } };
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => showView(b.dataset.view));
 $('#days').onclick = e => { const b = e.target.closest('.dchip'); if (b) selectDay(+b.dataset.d); };
@@ -1206,7 +1275,7 @@ function showOnboarding(){
       title: '날씨 보는 법',
       body: `<ul><li>📍 맨 위 탭은 <b>현재 위치 + 자주 가는 지역 3곳</b> (＋로 추가)</li>
         <li>📅 날짜를 누르면 <b>16일 뒤</b>까지 볼 수 있어요</li>
-        <li>🌤️ <b>오전·오후·저녁</b> 체감온도와 비·바람을 정리해 드려요</li>
+        <li>🌤️ <b>아침·낮·저녁</b> 체감온도와 비·바람, 시간에 따른 느낌까지 정리해 드려요</li>
         <li>☂️ 비나 눈이 오면 <b>우산 알림</b>이 떠요</li></ul>` },
     { art: `<span class="onb-bars bars">${bars}</span>`,
       title: '옷 추천과 기록',
