@@ -1131,12 +1131,68 @@ $('#resetBtn').onclick = () => {
   S.records = []; save(); render(); toast('모두 지웠어요');
 };
 
+/* ---- 처음 사용 안내 (한 번만) ---- */
+let onbI = 0, onbSlides = [];
+function showOnboarding(){
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const bars = [1, 2, 3, 4].map(k => `<i class="${k <= 3 ? 'on' : ''}" style="height:${8 + k * 6}px"></i>`).join('');
+  onbSlides = [
+    { art: `<img src="icon-192.png?v=2" width="88" height="88" alt="" style="border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.1)">`,
+      title: '오늘 뭐 입지에 오신 걸 환영해요',
+      body: `<p class="onb-lead">날씨를 보고 <b>옷을 얼마나 두껍게 입을지</b> 알려드려요.<br>입은 옷을 기록할수록 <b>내 몸에 맞게</b> 추천이 바뀌어요.</p>` },
+    { art: wxIcon('partly-day', 72),
+      title: '날씨 보는 법',
+      body: `<ul><li>📍 맨 위 탭은 <b>현재 위치 + 자주 가는 지역 3곳</b> (＋로 추가)</li>
+        <li>📅 날짜를 누르면 <b>16일 뒤</b>까지 볼 수 있어요</li>
+        <li>🌤️ <b>오전·오후·저녁</b> 체감온도와 비·바람을 정리해 드려요</li>
+        <li>☂️ 비나 눈이 오면 <b>우산 알림</b>이 떠요</li></ul>` },
+    { art: `<span class="onb-bars bars">${bars}</span>`,
+      title: '옷 추천과 기록',
+      body: `<ul><li>막대가 많을수록 <b>두껍게</b> 입으라는 뜻이에요</li>
+        <li>입고 나가면 <b>👍 이대로 입었어요</b>, 다르게 입었으면 <b>✏️ 다르게 입었어요</b></li>
+        <li>저녁에 <b>🥶 추웠어 · 😊 딱 좋아 · 🥵 더웠어</b>를 누르면 다음 추천이 더 정확해져요</li></ul>` },
+    { art: '<span class="onb-emo">⛳ 🏃 🧒</span>',
+      title: '운동복·아이옷도 돼요',
+      body: `<ul><li>위쪽 <b>＋ 추가</b>에서 골프·러닝·등산·자전거·테니스를 고를 수 있어요</li>
+        <li>아이는 <b>태어난 해</b>로 여러 명 등록하고, 아이마다 따로 배워요</li>
+        <li>기록은 이 폰에만 저장돼요 · <b>설정 → 백업</b>으로 옮길 수 있어요</li></ul>` },
+  ];
+  if (!standalone) onbSlides.push({ art: '<span class="onb-emo">📲</span>', title: '홈 화면에 추가하면 앱처럼 써요',
+    body: `<div class="onb-guide">${guideHTML(installGuide(), true).replace(/^<b class="gt">.*?<\/b>/, '')}</div>` });
+  onbI = 0; drawOnb(); $('#onb').hidden = false;
+}
+function drawOnb(){
+  const sl = onbSlides[onbI], last = onbI === onbSlides.length - 1;
+  $('#onbSlide').innerHTML = `<div class="onb-art">${sl.art}</div><h3>${sl.title}</h3>${sl.body}`;
+  $('#onbDots').innerHTML = onbSlides.map((_, i) => `<i class="${i === onbI ? 'on' : ''}"></i>`).join('');
+  $('#onbNext').textContent = last ? '시작하기' : '다음';
+  $('#onbSkip').style.visibility = last ? 'hidden' : 'visible';
+}
+function closeOnb(done){
+  $('#onb').hidden = true;
+  const first = !S.onboarded;
+  S.onboarded = true; save();
+  track(done ? 'onboarding/done' : 'onboarding/skip', done ? '사용 안내 끝까지 봄' : '사용 안내 건너뜀');
+  if (first && S.locSel === 'gps') useGPS(); // 안내를 닫은 뒤에 위치 권한을 물어봐요
+}
+$('#onbNext').onclick = () => { if (onbI < onbSlides.length - 1){ onbI++; drawOnb(); } else closeOnb(true); };
+$('#onbSkip').onclick = () => closeOnb(false);
+$('#onbSlide').onclick = $('#installBanner').onclick;
+let onbX = null;
+$('#onb').addEventListener('touchstart', e => { onbX = e.touches[0].clientX; }, {passive: true});
+$('#onb').addEventListener('touchend', e => {
+  if (onbX == null) return; const dx = e.changedTouches[0].clientX - onbX; onbX = null;
+  if (dx < -50 && onbI < onbSlides.length - 1){ onbI++; drawOnb(); } else if (dx > 50 && onbI > 0){ onbI--; drawOnb(); }
+});
+$('#setHelp').onclick = showOnboarding;
+
 /* ---- 시작 ---- */
 startAnalytics();
 render();
 dailyStats();
 const stale = () => !S.wx || Date.now() - S.wx.at > 30*60e3 || S.wx.main.daily.time[0] !== todayStr();
-if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
+if (!S.onboarded) showOnboarding();
+else if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
 if (S.loc && stale()) fetchWeather();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){ dailyStats(); if (S.loc && stale()) fetchWeather(); }
