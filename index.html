@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>오늘 뭐 입지</title>
-<meta name="description" content="날씨와 내 기록으로 옷차림을 추천해요 · 일상복, 골프·러닝·등산·자전거·테니스, 아이옷">
+<title>모닝픽</title>
+<meta name="description" content="아침에 필요한 것만 골라 담은 모닝픽 · 날씨와 옷차림 추천, 경제 뉴스·증시 요약, 매일 영어 한 문장과 AI 꿀팁">
 <meta name="theme-color" content="#F7F3EF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="뭐입지">
+<meta name="apple-mobile-web-app-title" content="모닝픽">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-<link rel="icon" href="icon-192.png?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=3">
+<link rel="icon" href="icon-192.png?v=3">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
@@ -20,12 +20,12 @@
   --soft:#F4EEE9; --acc:#F3D9CC; --acc-ink:#8C4F38; --acc-line:#E9C3B1;
   --h:30; --shadow:0 4px 18px rgba(90,60,40,.06);
   --hero-a:hsl(var(--h) 55% 91%); --hero-b:hsl(calc(var(--h) + 14) 45% 85%); --hero-ink:hsl(var(--h) 25% 22%);
-  --hero-glass:rgba(255,255,255,.5);
+  --hero-glass:rgba(255,255,255,.5); --ok-ink:#2F8F5B; --bad-ink:#C9705A;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#1C1A18; --card:#262321; --ink:#ECE6E1; --sub:#A39B94; --line:#36312D;
     --soft:#2F2B28; --acc:#4A362C; --acc-ink:#F0C4AF; --acc-line:#5E4436; --shadow:0 4px 18px rgba(0,0,0,.3);
-    --hero-a:hsl(var(--h) 22% 25%); --hero-b:hsl(calc(var(--h) + 14) 18% 19%); --hero-ink:#F1ECE8; --hero-glass:rgba(255,255,255,.08); }
+    --hero-a:hsl(var(--h) 22% 25%); --hero-b:hsl(calc(var(--h) + 14) 18% 19%); --hero-ink:#F1ECE8; --hero-glass:rgba(255,255,255,.08); --ok-ink:#7FD3A0; --bad-ink:#F0A08C; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);overscroll-behavior-y:contain}
@@ -381,6 +381,77 @@ details.nkw[open] summary span{transform:rotate(180deg)}
 .nhist button.on{background:var(--acc);color:var(--acc-ink)}
 .nhist b{margin-right:4px}
 .nbtn.main{background:var(--acc);border-color:var(--acc-line);color:var(--acc-ink)}
+/* Daily Up */
+.tk-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px}
+.streak{font-size:12.5px;font-weight:800;color:var(--acc-ink);background:var(--acc);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.tk-q{display:flex;gap:10px;align-items:flex-start;margin:12px 0 6px}
+.tk-en{flex:1;font-size:19px;font-weight:700;line-height:1.5;margin:0;letter-spacing:-.2px}
+.say{flex:none;width:38px;height:38px;border-radius:12px;background:var(--soft);font-size:17px;display:inline-grid;place-items:center;transition:.15s}
+.say.sm{width:28px;height:28px;font-size:13px;border-radius:9px;vertical-align:-7px;margin-left:2px}
+.say.on{background:var(--acc);transform:scale(1.08)}
+details.tk-ko summary{list-style:none;cursor:pointer;font-size:13.5px;font-weight:800;color:var(--sub);margin:4px 0 8px}
+details.tk-ko summary::-webkit-details-marker{display:none}
+details.tk-ko .o{display:none}details.tk-ko[open] .c{display:none}details.tk-ko[open] .o{display:inline}
+details.tk-ko p{font-size:15px;line-height:1.6;margin:0 0 10px;background:var(--soft);border-radius:12px;padding:10px 12px}
+details.tk-ex{margin-top:2px}
+.wd{padding:9px 2px;border-top:1px solid var(--line)}
+.wd:first-child{border-top:0}
+.wh{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.wh b{font-size:15.5px}
+.wh i{font-style:normal;font-size:11px;font-weight:800;color:var(--acc-ink);background:var(--acc);border-radius:6px;padding:1px 6px}
+.wk{font-size:14px;font-weight:700}
+.wn{font-size:13px;color:var(--sub);line-height:1.55;margin-top:3px}
+.we{font-size:13.5px;margin-top:4px;line-height:1.5}
+.gbox{background:var(--soft);border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.6;margin:10px 0}
+.tk-ans{margin-top:14px}
+.tk-st{display:flex;gap:6px;overflow-x:auto;margin:0 -20px 8px;padding:0 20px 2px;scrollbar-width:none}
+.tk-st::-webkit-scrollbar{display:none}
+.tk-st button{flex:none;font-size:12.5px;font-weight:700;background:var(--soft);border-radius:999px;padding:7px 11px;white-space:nowrap}
+textarea.tk-in{display:block;width:100%;min-height:118px;resize:vertical;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;font:inherit;font-size:16px;line-height:1.55;background:var(--bg);color:var(--ink)}
+textarea.tk-in:focus{outline:none;border-color:var(--acc-line)}
+.tk-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.tk-cnt{font-size:12.5px;color:var(--sub);font-weight:700;min-width:44px}
+.tk-row .btn{flex:1}
+.tk-note{font-size:11.5px;color:var(--sub);margin-top:8px;line-height:1.5}
+.tk-err{margin-top:10px;background:rgba(224,122,104,.1);border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.6}
+.tk-wait{text-align:center;padding:26px 12px;background:var(--soft);border-radius:16px;margin-top:14px;font-weight:700;line-height:1.7}
+.tk-wait small{color:var(--sub);font-weight:600}
+.tdots i{font-style:normal;animation:dt 1.2s infinite both}.tdots i:nth-child(2){animation-delay:.2s}.tdots i:nth-child(3){animation-delay:.4s}
+@keyframes dt{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.fb{margin-top:6px}
+.fb-h{font-size:13px;font-weight:800;color:var(--sub);margin:14px 2px 6px;display:flex;align-items:center;gap:6px}
+.fb-my{background:var(--soft);border-radius:14px;padding:10px 12px;font-size:14.5px;line-height:1.6;white-space:pre-wrap}
+.fb-v{margin-top:10px;background:var(--acc);color:var(--acc-ink);border-radius:14px;padding:10px 12px;font-weight:700;font-size:14.5px;line-height:1.55}
+.fb-c,.fb-n{font-size:15.5px;line-height:1.75;margin:0;padding:10px 12px;border:1.5px solid var(--line);border-radius:14px}
+.fb-c del{color:var(--bad-ink);text-decoration:line-through;text-decoration-thickness:1.5px;background:rgba(224,122,104,.12);border-radius:4px;padding:0 2px}
+.fb-c ins{color:var(--ok-ink);text-decoration:none;background:rgba(93,179,126,.16);border-radius:4px;padding:0 2px;font-weight:700}
+.fb-l{list-style:none;margin:0;padding:0}
+.fb-l li{padding:9px 2px;border-top:1px dashed var(--line);font-size:14.5px;line-height:1.55}
+.fb-l li:first-child{border-top:0}
+.fb-l s{color:var(--bad-ink)}.fb-l b{color:var(--ok-ink)}
+.fb-l .fy{font-size:13px;color:var(--sub);margin-top:2px}
+.fb-ok{margin-top:10px;font-size:14px;font-weight:700;color:var(--ok-ink)}
+.fb-act{display:flex;gap:8px;margin-top:14px}
+.smp{padding:10px 2px;border-top:1px dashed var(--line)}
+.smp:first-of-type{border-top:0}
+.smp .tg{font-size:11px;font-weight:800;color:var(--acc-ink);background:var(--acc);border-radius:6px;padding:1px 6px}
+.smp p{margin:5px 0 0;font-size:14.5px;line-height:1.6}
+.smp p.k{color:var(--sub);font-size:13px;margin-top:2px}
+details.tk-smp{margin-top:14px}
+.tip-cat{display:inline-block;font-size:12px;font-weight:800;color:var(--sub);margin-top:8px}
+.aitip .ntitle{margin-top:4px}
+.pqs{display:grid;gap:8px;margin:0 0 10px}
+.pq{border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.6}
+.pq b{display:block;font-size:12.5px;margin-bottom:3px}
+.pq p{margin:0;white-space:pre-wrap}
+.pq.bad{background:rgba(224,122,104,.1)}.pq.good{background:rgba(93,179,126,.13)}
+.pqw{font-size:13.5px;line-height:1.6;color:var(--acc-ink);padding:0 2px}
+.ptx{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:14px;line-height:1.6;background:var(--soft);border-radius:14px;padding:12px;margin:6px 0 0}
+.cpy{font-size:12.5px;font-weight:800;color:var(--acc-ink);background:var(--card);border:1px solid var(--acc-line);border-radius:999px;padding:6px 12px;margin-top:8px}
+.pcau{background:rgba(240,190,90,.16);border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.6;margin:12px 0 8px}
+.stp{margin:0 0 10px;padding-left:22px;font-size:14.5px;line-height:1.7}
+.tabbar button{position:relative}
+.tabbar .ndot{position:absolute;top:3px;left:calc(50% + 9px);width:8px;height:8px;border-radius:50%;background:#F0795F;box-shadow:0 0 0 2px var(--card)}
 /* 증시 */
 .card h2 .fgb{font-size:12px;font-weight:700;color:var(--sub);margin-left:6px}
 .idxg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -552,6 +623,15 @@ details.nkw[open] summary span{transform:rotate(180deg)}
   <div class="tip" id="tipBox"></div>
 </main>
 
+<!-- ============ Daily Up ============ -->
+<main class="view" id="v-daily">
+  <div class="wrap">
+    <div class="top"><div><b style="font-size:24px">Daily Up</b><div class="upd" id="duUpd"></div></div>
+      <button class="icon-btn" id="duRefresh" aria-label="새로고침">↻</button></div>
+    <div id="duBody"></div>
+  </div>
+</main>
+
 <!-- ============ 설정 ============ -->
 <main class="view" id="v-set">
   <div class="wrap">
@@ -590,6 +670,16 @@ details.nkw[open] summary span{transform:rotate(180deg)}
       <div class="steprow"><span>먼저 볼 시장</span><div class="seg2" id="mktOpts"><button data-v="kr">국내</button><button data-v="us">미국</button></div></div>
     </div>
 
+    <div class="sgroup">🌱 Daily Up</div>
+    <div class="card" style="margin-top:4px">
+      <button class="set-item" id="talkRow">💬 Talk Pick 보기 <i class="switch" id="talkSwitch"></i></button>
+      <button class="set-item" id="talkKoRow">🇰🇷 질문 해석 바로 펼치기 <i class="switch" id="talkKoSwitch"></i></button>
+      <button class="set-item" id="tipRow">🥄 AI 한 스푼 보기 <i class="switch" id="tipSwitch"></i></button>
+      <div class="steprow"><span>Talk Pick 난이도</span><div class="seg2" id="talkLvOpts"><button data-v="mid">중급</button><button data-v="high">중상급</button></div></div>
+      <div class="steprow"><span>🔊 발음</span><div class="seg2" id="voiceOpts"><button data-v="us">미국</button><button data-v="uk">영국</button></div></div>
+      <div class="steprow"><span>읽기 속도</span><div class="seg2" id="rateOpts"><button data-v="0">보통</button><button data-v="1">천천히</button></div></div>
+    </div>
+
     <div class="sgroup">⚙️ 공통</div>
     <div class="card" style="margin-top:4px">
       <button class="set-item" id="setHelp">📖 사용 설명 다시 보기 <span>›</span></button>
@@ -617,10 +707,10 @@ details.nkw[open] summary span{transform:rotate(180deg)}
     <div class="card help">
       <h2 style="font-size:17px">📚 데이터 출처 (모두 무료)</h2>
       <p style="margin:0;font-size:13.5px;color:var(--sub)">날씨·미세먼지: Open-Meteo (ECMWF·NOAA·DWD·JMA·KMA·Met Office·CAMS 등) · 국내 행정구역: 통계청 경계(vuski/admdongkor) · 지역 검색: OpenStreetMap
-      · 증시: 네이버 증권·Nasdaq · 코인: CoinGecko·Upbit·alternative.me · 경제 일정: ForexFactory · 뉴스: Reuters·Bloomberg·WSJ·FT·CNBC·MarketWatch·CoinDesk·Fed·The Economist·연합뉴스·매일경제 등 (Google 뉴스 RSS 포함) · 요약·번역: GitHub Models / 자동 번역</p>
+      · 증시: 네이버 증권·Nasdaq · 코인: CoinGecko·Upbit·alternative.me · 경제 일정: ForexFactory · 뉴스: Reuters·Bloomberg·WSJ·FT·CNBC·MarketWatch·CoinDesk·Fed·The Economist·연합뉴스·매일경제 등 (Google 뉴스 RSS 포함) · 요약·번역·경제노트·Talk Pick·AI 한 스푼: Google Gemini / 자동 번역 · 영어 첨삭: Pollinations(GPT-OSS) · 영어 발음: 기기 내장 음성</p>
     </div>
     <div class="card"><button class="set-item" id="resetBtn" style="color:#C9705A">모든 기록 지우기</button></div>
-    <p style="text-align:center;color:var(--sub);font-size:12px;margin:20px 0">오늘 뭐 입지 · 개인 비상업 앱</p>
+    <p style="text-align:center;color:var(--sub);font-size:12px;margin:20px 0">모닝픽 · 개인 비상업 앱</p>
   </div>
 </main>
 
@@ -628,6 +718,7 @@ details.nkw[open] summary span{transform:rotate(180deg)}
   <button class="on" data-view="home"><span class="e">🌤️</span>날씨</button>
   <button data-view="news"><span class="e">📰</span>뉴스</button>
   <button data-view="market"><span class="e">📈</span>증시</button>
+  <button data-view="daily"><span class="e">🌱</span>Daily Up<i class="ndot" id="duDot" hidden></i></button>
   <button data-view="set"><span class="e">⚙️</span>설정</button>
 </nav>
 
@@ -697,5 +788,6 @@ details.nkw[open] summary span{transform:rotate(180deg)}
 <script src="app.js"></script>
 <script src="market.js"></script>
 <script src="news.js"></script>
+<script src="daily.js"></script>
 </body>
 </html>

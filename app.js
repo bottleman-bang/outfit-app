@@ -114,6 +114,7 @@ function load(){
   s.fcStep = {daily: 3, sport: 1, kid: 3, ...(s.fcStep || {})}; // 시간별 예보 간격 (운동은 1시간이 기본)
   s.newsCats ||= ['markets','economy','bonds','commodities','crypto','tech','people','korea','world'];
   s.newsOrig ??= false; s.upColor ||= 'kr'; s.mkt ||= 'kr'; s.life ??= true;
+  s.talkLv ||= 'mid'; s.voice ||= 'us'; s.slow ??= false; // Daily Up
   s.periods = (s.periods || ['am','pm','eve']).filter(k => ['dawn','am','pm','eve','night'].includes(k)); if (!s.periods.length) s.periods = ['am','pm','eve'];
   // 위치: 현재 위치(gps) + 저장 지역(places), 날씨는 지역별로 저장
   s.places ||= []; s.wxc ||= {};
@@ -992,6 +993,12 @@ function renderSettings(){
   $('#lifeSwitch').classList.toggle('on', !!S.life);
   document.querySelectorAll('#upColorOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.upColor));
   document.querySelectorAll('#mktOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.mkt));
+  $('#talkSwitch').classList.toggle('on', S.talkOn !== false);
+  $('#talkKoSwitch').classList.toggle('on', !!S.talkKo);
+  $('#tipSwitch').classList.toggle('on', S.tipOn !== false);
+  document.querySelectorAll('#talkLvOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.talkLv));
+  document.querySelectorAll('#voiceOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === S.voice));
+  document.querySelectorAll('#rateOpts button').forEach(b => b.classList.toggle('on', b.dataset.v === (S.slow ? '1' : '0')));
   $('#statsSwitch').classList.toggle('on', !!S.stats);
   $('#statsRow').hidden = !GC;
 }
@@ -1048,6 +1055,7 @@ function showView(v){
   if (v === 'set') renderSettings();
   if (v === 'news') renderNews();
   if (v === 'market') renderMarket();
+  if (v === 'daily'){ renderDailyUp(); if (!S.duSeen){ S.duSeen = true; save(); } $('#duDot').hidden = true; }
   try { sessionStorage.setItem('view', v); } catch(e){}
   scrollTo(0,0);
 }
@@ -1367,7 +1375,7 @@ $('#guideBox').onclick = $('#installBanner').onclick;
 $('#statsRow').onclick = () => { S.stats = !S.stats; save(); renderSettings(); if (S.stats) startAnalytics(); };
 $('#exportBtn').onclick = async () => {
   const data = JSON.stringify({app:'outfit', v:4, at:new Date().toISOString(), records:S.records, modes:S.modes, kids:S.kids}, null, 1);
-  const name = `옷차림백업_${todayStr()}.json`;
+  const name = `모닝픽백업_${todayStr()}.json`;
   const file = new File([data], name, {type:'application/json'});
   track('backup/export', '백업 저장');
   if (navigator.canShare && navigator.canShare({files:[file]})) {
@@ -1405,9 +1413,9 @@ function showOnboarding(){
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const bars = [1, 2, 3, 4].map(k => `<i class="${k <= 3 ? 'on' : ''}" style="height:${8 + k * 6}px"></i>`).join('');
   onbSlides = [
-    { art: `<img src="icon-192.png?v=2" width="88" height="88" alt="" style="border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.1)">`,
-      title: '오늘 뭐 입지에 오신 걸 환영해요',
-      body: `<p class="onb-lead">날씨를 보고 <b>옷을 얼마나 두껍게 입을지</b> 알려드려요.<br>입은 옷을 기록할수록 <b>내 몸에 맞게</b> 추천이 바뀌어요.</p>` },
+    { art: `<img src="icon-192.png?v=3" width="88" height="88" alt="" style="border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.1)">`,
+      title: '모닝픽에 오신 걸 환영해요',
+      body: `<p class="onb-lead">아침에 필요한 것만 골라 담았어요.<br>🌤️ <b>날씨·옷차림</b> · 📰 <b>뉴스</b> · 📈 <b>증시</b> · 🌱 <b>영어·AI</b><br>입은 옷을 기록할수록 <b>내 몸에 맞게</b> 추천이 바뀌어요.</p>` },
     { art: wxIcon('partly-day', 72),
       title: '날씨 보는 법',
       body: `<ul><li>📍 맨 위 탭은 <b>현재 위치 + 자주 가는 지역 3곳</b> (＋로 추가)</li>
@@ -1429,6 +1437,10 @@ function showOnboarding(){
     body: `<ul><li>📰 <b>뉴스</b> 탭: Reuters·Bloomberg·WSJ 등 공신력 있는 경제 뉴스를 모아 <b>핵심만 요약</b>해요</li>
       <li>📈 <b>증시</b> 탭: 세계 지수·코스피·환율·금리·코인, <b>마켓맵</b>과 <b>인기 TOP 10</b></li>
       <li>⚙️ 설정에서 관심 분류·상승 색 등을 바꿀 수 있어요</li></ul>` });
+  onbSlides.push({ art: '<span class="onb-emo">💬 🥄</span>', title: 'Daily Up으로 매일 한 뼘씩',
+    body: `<ul><li>💬 <b>Talk Pick</b>: 매일 영어 질문 한 문장에 답하면 <b>AI가 첨삭</b>하고 더 좋은 표현과 다른 답변 예시를 알려드려요</li>
+      <li>🔎 질문 속 <b>단어·문법 해설</b>과 🔊 <b>발음 듣기</b>도 있어요</li>
+      <li>🥄 <b>AI 한 스푼</b>: 프롬프트 쓰는 법부터 생활·업무 활용까지, 매일 하나씩</li></ul>` });
   if (!standalone) onbSlides.push({ art: '<span class="onb-emo">📲</span>', title: '홈 화면에 추가하면 앱처럼 써요',
     body: `<div class="onb-guide">${guideHTML(installGuide(), true).replace(/^<b class="gt">.*?<\/b>/, '')}</div>` });
   onbI = 0; drawOnb(); $('#onb').hidden = false;
@@ -1466,6 +1478,12 @@ $('#newsCatOpts').onclick = e => {
 $('#newsOrigRow').onclick = () => { S.newsOrig = !S.newsOrig; save(); renderSettings(); };
 $('#noteRow').onclick = () => { S.noteOn = S.noteOn === false; save(); renderSettings(); };
 $('#lifeRow').onclick = () => { S.life = !S.life; save(); renderSettings(); };
+$('#talkRow').onclick = () => { S.talkOn = S.talkOn === false; save(); renderSettings(); };
+$('#talkKoRow').onclick = () => { S.talkKo = !S.talkKo; save(); renderSettings(); };
+$('#tipRow').onclick = () => { S.tipOn = S.tipOn === false; save(); renderSettings(); };
+$('#talkLvOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.talkLv = b.dataset.v; save(); renderSettings(); };
+$('#voiceOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.voice = b.dataset.v; save(); renderSettings(); speakEn(S.voice === 'uk' ? 'Good morning! Lovely to see you.' : 'Good morning! Great to see you.'); };
+$('#rateOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.slow = b.dataset.v === '1'; save(); renderSettings(); speakEn('Good morning! Let\'s practice English together.'); };
 $('#upColorOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.upColor = b.dataset.v; save(); renderSettings(); upColors(); };
 $('#mktOpts').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; S.mkt = b.dataset.v; S.mapMkt = S.topMkt = b.dataset.v; save(); renderSettings(); };
 $('#stepOpts').onclick = e => {
@@ -1487,7 +1505,7 @@ $('#periodOpts').onclick = e => {
   const blocked = () => openSheetEl || !$('#onb').hidden || busy;
   const set = (dist, txt) => { el.style.transform = `translate(-50%, ${Math.min(dist, 100) - 60}px)`; el.querySelector('.ic').style.transform = `rotate(${dist * 3}deg)`; el.querySelector('.tx').textContent = txt; };
   addEventListener('touchstart', e => {
-    if (blocked() || window.scrollY > 0 || e.touches.length > 1) return;
+    if (blocked() || window.scrollY > 0 || e.touches.length > 1 || e.target.closest('textarea, input, select')) return;
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; d = 0; el.classList.add('drag');
   }, {passive: true});
   addEventListener('touchmove', e => {
@@ -1517,9 +1535,10 @@ if (!S.onboarded) showOnboarding();
 else if (S.locSel === 'gps') useGPS(); // 현재 위치는 열 때마다 다시 확인
 let forced = false; try { forced = sessionStorage.getItem('forceRefresh') === '1'; sessionStorage.removeItem('forceRefresh'); } catch(e){}
 if (S.loc && (forced || stale())) fetchWeather().then(() => forced && toast('새로고침했어요 ✨'));
-upColors();
 let v0 = 'home'; try { v0 = (forced && sessionStorage.getItem('view')) || 'home'; } catch(e){}
-showView(v0);
+$('#duDot').hidden = !!S.duSeen;
+// 증시·뉴스·Daily Up 함수는 뒤 스크립트(market.js 등)에 있어서, 모든 스크립트가 읽힌 뒤에 실행
+addEventListener('DOMContentLoaded', () => { upColors(); showView(v0); });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){ dailyStats(); if (S.loc && stale()) fetchWeather(); }
 });
