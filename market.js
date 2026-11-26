@@ -213,6 +213,7 @@ async function renderMarket(force){
   el.innerHTML = `
     <section class="card mbrief"><div class="tt">📌 시장 한눈에 <span class="badge">${M.ai && M.brief?.length ? 'AI 요약' : '자동 정리'}</span></div>
       <ul>${brief.map(l => `<li>${l}</li>`).join('')}</ul></section>
+    ${commentaryCard(M)}
     <section class="card"><h2>🇰🇷 국내</h2><div class="idxg">${(M.kr?.indices || []).map(x => idxTile(x, true)).join('')}</div>
       ${inv.KOSPI ? `<div class="invbox">${invRow('KOSPI', '코스피 투자자별 순매수')}${invRow('KOSDAQ', '코스닥')}</div>` : ''}</section>
     <section class="card"><h2>🌏 해외 지수</h2>${regions.map(r => {
@@ -252,3 +253,16 @@ document.addEventListener('click', e => {
   }
 });
 addEventListener('resize', () => { if ($('#v-market')?.classList.contains('on')){ const M = dcLoad('market')?.data; if (M) renderMap(M, S.mapMkt || S.mkt || 'kr'); } });
+
+/* ---- AI 시장 해설 ---- */
+function commentaryCard(M){
+  const c = M.commentary; if (!c || !(c.paragraphs || []).length) return '';
+  const P = c.paragraphs;
+  return `<section class="card note mcom"><div class="tt">🧭 오늘의 시장 해설 <span class="badge">AI</span></div>
+    ${c.headline ? `<h3 class="ntitle">${esc(c.headline)}</h3>` : ''}
+    <p class="np">${esc(P[0])}</p>
+    ${P.length > 1 || (c.watch || []).length ? `<details class="nread"><summary><span class="c">이어서 읽기 ▾</span><span class="o">접기 ▴</span></summary>
+      ${P.slice(1).map(p => `<p class="np">${esc(p)}</p>`).join('')}
+      ${(c.watch || []).length ? `<div class="nkw-h">👀 앞으로 볼 것</div><ul class="nsum">${c.watch.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</details>` : ''}
+  </section>`;
+}
