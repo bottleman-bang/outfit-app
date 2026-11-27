@@ -30,9 +30,6 @@ const ago = iso => {
   const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}`;
 };
 const hhmm = iso => { const d = new Date(iso); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
-const fmt = (v, dec = 2) => v == null || isNaN(v) ? '–' : Number(v).toLocaleString('ko-KR', {minimumFractionDigits: dec, maximumFractionDigits: dec});
-const sgn = (v, dec = 2) => v == null || isNaN(v) ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v), dec);
-const pctTxt = v => v == null ? '–' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
 const updn = v => v > 0.004 ? 'up' : v < -0.004 ? 'dn' : 'fl';
 const krVal = v => v == null ? '–' : v >= 1e6 ? `${(v / 1e6).toFixed(2)}조` : `${fmt(v / 100, 0)}억`;          // 백만원 → 조/억
 const krCap = v => v == null ? '–' : v >= 1e4 ? `${fmt(v / 1e4, v >= 1e5 ? 0 : 1)}조` : `${fmt(v, 0)}억`;       // 억원
@@ -51,38 +48,6 @@ function upColors(){
 let MK_MAP = null; // 마켓맵 타일 정보 (탭할 때)
 function statusKo(s){ return s === 'OPEN' ? '장중' : s === 'CLOSE' ? '마감' : s === 'PREOPEN' ? '장 시작 전' : ''; }
 
-function ruleMarketBrief(M){
-  const L = [], P = PH.mk, W = Object.fromEntries((M.world || []).map(x => [x.id, x]));
-  const word = p => p >= 1.5 ? say(P.surge, 'mk.w' + p) : p >= 0.4 ? say(P.rise, 'mk.r' + p) : p > 0 ? '강보합' : p > -0.4 ? (p === 0 ? '보합' : '약보합') : p > -1.5 ? say(P.fall, 'mk.f' + p) : say(P.plunge, 'mk.p' + p);
-  if (W['.INX']){
-    const sp = W['.INX'].pct, nq = W['.IXIC']?.pct ?? 0;
-    const movers = [...(M.us?.map || [])].slice(0, 40).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct)).slice(0, 2);
-    L.push(say(P.us, 'mk.us', {sp: pctTxt(sp), nq: pctTxt(nq), w: word((sp + nq) / 2),
-      mv: movers.map(x => `${x.name} ${pctTxt(x.pct)}`).join(', ')}));
-  }
-  const k = (M.kr?.indices || []).find(x => x.id === 'KOSPI'), q = (M.kr?.indices || []).find(x => x.id === 'KOSDAQ');
-  if (k){
-    const inv = M.kr.investor?.KOSPI || {};
-    const big = [['외국인', inv.foreign], ['기관', inv.inst], ['개인', inv.personal]].filter(x => x[1] != null).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
-    L.push(say(P.kr, 'mk.kr', {k: fmt(k.price), kp: pctTxt(k.pct), q: q ? fmt(q.price) : '–', qp: q ? pctTxt(q.pct) : '–', w: word(k.pct),
-      who: big ? big[0] : '', amt: big ? `${fmt(Math.abs(big[1]), 0)}억 ${big[1] > 0 ? '순매수' : '순매도'}` : ''}));
-  }
-  const mac = M.macro || {}, f = id => [...(mac.exchange || []), ...(mac.bond || []), ...(mac.energy || []), ...(mac.metals || [])].find(x => x.id === id);
-  const usd = f('FX_USDKRW'), y10 = f('US10YT=RR'), wti = f('CLcv1'), gold = f('GCcv1');
-  if (usd && y10) L.push(say(P.fx, 'mk.fx', {usd: fmt(usd.price, 1), uc: sgn(usd.chg, 1), y: fmt(y10.price, 3), bp: sgn(y10.chg * 100, 1),
-    yw: y10.chg < 0 ? '내려' : '올라', uw: usd.chg > 0 ? '올랐어요' : usd.chg < 0 ? '내렸어요' : '제자리예요'}));
-  if (wti && gold) L.push(say(P.cmd, 'mk.cm', {wti: fmt(wti.price), wp: pctTxt(wti.pct), gold: fmt(gold.price, 1), gp: pctTxt(gold.pct)}));
-  const btc = (M.crypto?.coins || [])[0], fg = M.crypto?.fg;
-  if (btc){
-    const kp = btc.krw && usd ? (btc.krw / (btc.price * usd.price) - 1) * 100 : null;
-    L.push(say(P.coin, 'mk.co', {p: fmt(btc.price, 0), pc: pctTxt(btc.pct), kp: kp == null ? '' : ` · 김치 프리미엄 ${kp >= 0 ? '+' : ''}${kp.toFixed(1)}%`,
-      fg: fg ? ` · 코인 심리 '${FG_KO(fg.value)}'(${fg.value})` : ''}));
-  }
-  const vix = W['.VIX'];
-  if (vix) L.push(vix.price >= 30 ? say(P.vixHigh, 'mk.vh', {v: fmt(vix.price)}) : vix.price >= 20 ? say(P.vixMid, 'mk.vm', {v: fmt(vix.price)}) : say(P.vixLow, 'mk.vl', {v: fmt(vix.price)}));
-  return L;
-}
-const FG_KO = v => v <= 24 ? '극단적 공포' : v <= 44 ? '공포' : v <= 55 ? '중립' : v <= 75 ? '탐욕' : '극단적 탐욕';
 
 function idxTile(x, big){
   const c = updn(x.pct);

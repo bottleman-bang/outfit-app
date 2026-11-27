@@ -1,8 +1,6 @@
 /* ================== 뉴스 탭 ================== */
-const CAT_E = {markets: '📈', economy: '🏛️', bonds: '💵', commodities: '🛢️', crypto: '🪙', tech: '🤖', people: '👤', korea: '🇰🇷', world: '🌏'};
 const CAT_ORDER = ['markets', 'economy', 'bonds', 'commodities', 'crypto', 'tech', 'people', 'korea', 'world'];
 
-function newsTitle(x){ return x.tk || x.t; }
 function newsItem(x, big){
   if (big) return topItem(x);
   const orig = S.newsOrig && x.tk && x.tk !== x.t ? `<div class="no">${esc(x.t)}</div>` : '';
@@ -32,13 +30,6 @@ function topItem(x, open){
   </details>`;
 }
 const N_AI = () => !!(DC.news && DC.news.data && DC.news.data.ai);
-function ruleNewsBrief(N){
-  const P = PH.nw, out = [];
-  const top = (N.top || []).slice(0, 4);
-  top.forEach((x, i) => out.push(say(P.item, 'nw.i' + i, {e: CAT_E[x.c] || '📰', t: esc(newsTitle(x)), s: esc(x.s), n: x.n > 1 ? ` (${x.n}개 매체)` : ''})));
-  if (N.digest && N.digest[0]) out.push('📊 ' + esc(N.digest[0]));
-  return out;
-}
 async function renderNews(force){
   const el = $('#nwBody');
   let N = dcLoad('news')?.data;
