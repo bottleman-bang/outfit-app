@@ -24,7 +24,9 @@ function talkStreak(today){
 const hasKo = s => /[가-힣]/.test(s);
 const words = s => (s.trim().match(/[A-Za-z][A-Za-z'’-]*/g) || []).length;
 
-/* ---- 🔊 영어 읽기 (기기 내장 음성, 무료) ---- */
+/* ---- 🔊 영어 읽기: AI 원어민 음성(Deepgram Aura-2, 무료 Cloudflare) → 안 되면 기기 내장 음성 ---- */
+const TTS_URL = (window.APP_CONFIG || {}).ttsUrl || '';
+let ttsAudio = null, ttsDown = 0; // ttsDown: AI 음성이 실패한 시각 (5분간은 바로 기기 음성으로)
 function enVoice(){
   if (!('speechSynthesis' in window)) return null;
   const want = S.voice === 'uk' ? 'en-gb' : 'en-us';
@@ -32,18 +34,43 @@ function enVoice(){
   const score = v => (/premium|enhanced|natural|neural/i.test(v.name) ? 4 : 0) + (/google|samantha|ava|allison|serena|daniel|karen|siri/i.test(v.name) ? 2 : 0) + (v.localService ? 1 : 0);
   return vs.sort((a, b) => score(b) - score(a))[0] || null;
 }
-function speakEn(text, btn){
-  if (!('speechSynthesis' in window)) return toast('이 기기는 음성 읽기를 지원하지 않아요');
-  const again = btn && btn.classList.contains('on');
-  speechSynthesis.cancel();
-  document.querySelectorAll('.say.on').forEach(b => b.classList.remove('on'));
-  if (again) return; // 한 번 더 누르면 멈춤
+function sayOff(btn){ if (btn) btn.classList.remove('on', 'wait'); }
+function stopSay(){
+  if (ttsAudio){ ttsAudio.onended = ttsAudio.onerror = null; ttsAudio.pause(); ttsAudio = null; }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  document.querySelectorAll('.say.on').forEach(sayOff);
+}
+function speakDevice(text, btn){
+  if (!('speechSynthesis' in window)){ sayOff(btn); return toast('이 기기는 음성 읽기를 지원하지 않아요'); }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = S.voice === 'uk' ? 'en-GB' : 'en-US';
   const v = enVoice(); if (v) u.voice = v;
   u.rate = S.slow ? 0.75 : 0.95;
-  if (btn){ btn.classList.add('on'); u.onend = u.onerror = () => btn.classList.remove('on'); }
+  if (btn){ btn.classList.remove('wait'); btn.classList.add('on'); u.onend = u.onerror = () => sayOff(btn); }
   speechSynthesis.speak(u);
+}
+function speakEn(text, btn){
+  const again = btn && btn.classList.contains('on');
+  stopSay();
+  if (again) return; // 한 번 더 누르면 멈춤
+  if (!TTS_URL || Date.now() - ttsDown < 300000) return speakDevice(text, btn);
+  // 탭한 순간 바로 재생을 시작해야 아이폰에서도 소리가 나요 (fetch 후 재생하면 막힘)
+  const a = new Audio(`${TTS_URL}?v=${S.voice === 'uk' ? 'uk' : 'us'}&t=${encodeURIComponent(text.trim())}`);
+  ttsAudio = a;
+  a.preservesPitch = true;
+  a.defaultPlaybackRate = a.playbackRate = S.slow ? 0.8 : 1;
+  if (btn) btn.classList.add('on', 'wait');
+  let started = false;
+  const fail = () => {
+    if (ttsAudio !== a || started) return;
+    ttsAudio = null; a.onerror = a.onended = null; a.pause(); ttsDown = Date.now();
+    speakDevice(text, btn);
+  };
+  const timer = setTimeout(fail, 12000);
+  a.onplaying = () => { started = true; clearTimeout(timer); a.playbackRate = S.slow ? 0.8 : 1; if (btn) btn.classList.remove('wait'); };
+  a.onended = () => { if (ttsAudio === a) ttsAudio = null; sayOff(btn); };
+  a.onerror = () => { clearTimeout(timer); started ? (ttsAudio === a && (ttsAudio = null), sayOff(btn)) : fail(); };
+  const p = a.play(); if (p && p.catch) p.catch(() => { clearTimeout(timer); fail(); });
 }
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 const sayBtn = (t, sm) => `<button class="say${sm ? ' sm' : ''}" data-say="${esc(t)}" aria-label="영어로 듣기">🔊</button>`;

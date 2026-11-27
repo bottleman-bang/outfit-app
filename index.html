@@ -392,6 +392,8 @@ details.nkw[open] summary span{transform:rotate(180deg)}
 .say{flex:none;width:38px;height:38px;border-radius:12px;background:var(--soft);font-size:17px;display:inline-grid;place-items:center;transition:.15s}
 .say.sm{width:28px;height:28px;font-size:13px;border-radius:9px;vertical-align:-7px;margin-left:2px}
 .say.on{background:var(--acc);transform:scale(1.08)}
+.say.wait{animation:sayWait 1s ease-in-out infinite}
+@keyframes sayWait{50%{opacity:.45}}
 details.tk-ko summary{list-style:none;cursor:pointer;font-size:13.5px;font-weight:800;color:var(--sub);margin:4px 0 8px}
 details.tk-ko summary::-webkit-details-marker{display:none}
 details.tk-ko .o{display:none}details.tk-ko[open] .c{display:none}details.tk-ko[open] .o{display:inline}

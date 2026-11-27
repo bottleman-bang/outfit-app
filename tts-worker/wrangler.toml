@@ -1,0 +1,12 @@
+name = "morningpick-tts"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+# 만든 소리 저장 (무료: 쓰기 하루 1,000번 · 1GB)
+[[kv_namespaces]]
+binding = "TTS"
+id = "75ba81cab6174214be5308d89f8eb1ff"
