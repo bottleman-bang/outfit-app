@@ -16,11 +16,22 @@ const brIcon = {
 function briefNow(){
   return buildBrief({news: dcLoad('news')?.data, market: dcLoad('market')?.data, daily: dcLoad('daily')?.data});
 }
+// 한국어 목소리: 기기에 있는 것 중 가장 자연스러운 걸 골라요 (프리미엄 > Edge 자연 음성 > 향상됨 > Google)
+const koVoices = () => ('speechSynthesis' in window) ? speechSynthesis.getVoices().filter(v => /^ko/i.test((v.lang || '').replace('_', '-'))) : [];
+const voiceQ = v => { const s = `${v.voiceURI || ''} ${v.name || ''}`.toLowerCase();
+  return /premium|프리미엄/.test(s) ? 9 : /natural|neural|online/.test(s) ? 8 : /enhanced|향상/.test(s) ? 7 : /google/.test(s) ? 5 : /yuna|sora|sunhi|injoon|hyunsu|seoyeon/.test(s) ? 2 : 0; };
+const voiceLabel = v => `${v.name}${voiceQ(v) >= 9 ? ' · 프리미엄' : voiceQ(v) >= 7 ? ' · 고품질' : ''}`;
 function koVoice(){
-  if (!('speechSynthesis' in window)) return null;
-  const vs = speechSynthesis.getVoices().filter(v => /^ko/i.test((v.lang || '').replace('_', '-')));
-  const sc = v => (/premium|enhanced|natural|neural|online/i.test(v.name) ? 4 : 0) + (/yuna|sora|siri|google|sunhi|injoon|hyunsu|seoyeon/i.test(v.name) ? 2 : 0) + (v.localService ? 1 : 0);
-  return vs.sort((a, b) => sc(b) - sc(a))[0] || null;
+  const vs = koVoices(), pick = S.koVoice && vs.find(v => v.voiceURI === S.koVoice);
+  return pick || vs.sort((a, b) => voiceQ(b) - voiceQ(a))[0] || null;
+}
+function renderKoVoice(){
+  const sel = $('#koVoiceSel'); if (!sel) return;
+  const vs = koVoices().sort((a, b) => voiceQ(b) - voiceQ(a)), cur = koVoice();
+  sel.innerHTML = vs.length ? vs.map(v => `<option value="${esc(v.voiceURI)}" ${cur && v.voiceURI === cur.voiceURI ? 'selected' : ''}>${esc(voiceLabel(v))}</option>`).join('')
+    : '<option>기기에 한국어 목소리가 없어요</option>';
+  const best = vs.length ? voiceQ(vs[0]) : 0;
+  $('#koVoiceTip').hidden = best >= 7;   // 고품질 목소리가 이미 있으면 안내 숨김
 }
 
 /* ---- 재생 ---- */
@@ -256,5 +267,14 @@ async function copyPlain(t, msg){
   $('#siriCopy').onclick = () => copyPlain(briefURL(), '내 브리핑 주소를 복사했어요');
   $('#siriAdd').onclick = () => { copyPlain(briefURL(), '주소를 복사했어요 · 단축어 추가 화면에서 붙여 넣어 주세요'); track('brief/shortcut', '시리 단축어 받기'); };
   $('#briefPlayRow').onclick = () => { showView('home'); brStart(); };
+  $('#koVoiceSel').onchange = e => { S.koVoice = e.target.value; save(); };
+  $('#koVoiceTest').onclick = () => {
+    if (BRP.st !== 'idle') brStop();
+    try { speechSynthesis.cancel(); } catch(e){}
+    const u = new SpeechSynthesisUtterance('안녕하세요. 모닝픽 오늘의 브리핑이에요. 오늘은 맑고 포근해요.');
+    u.lang = 'ko-KR'; const v = koVoice(); if (v) u.voice = v; speechSynthesis.speak(u);
+  };
+  renderKoVoice();
+  if ('speechSynthesis' in window) speechSynthesis.addEventListener?.('voiceschanged', renderKoVoice);
   renderSiri();
 })();

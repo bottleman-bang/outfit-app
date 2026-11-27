@@ -859,6 +859,9 @@ body.brp-on .toast{bottom:calc(164px + env(safe-area-inset-bottom))}
     <div class="card" style="margin-top:4px">
       <div class="why" style="margin:0 0 4px">날씨 화면 오른쪽 위 <b>🔊 오늘의 브리핑</b>을 누르면 날씨·뉴스·증시·Daily Up 요약을 한 번에 읽어줘요. 듣는 중에 일시정지·다음·정지를 누를 수 있어요.</div>
       <button class="set-item" id="briefPlayRow">▶ 지금 듣기 <span>›</span></button>
+      <div class="steprow"><span>🗣️ 한국어 목소리</span><select class="sel" id="koVoiceSel" style="width:auto;max-width:58%;font-size:15px;text-align:right" aria-label="한국어 목소리"></select></div>
+      <button class="set-item" id="koVoiceTest">▶ 목소리 들어보기 <span>›</span></button>
+      <div class="why" id="koVoiceTip" style="margin:6px 0 4px">💡 아이폰은 <b>설정 → 손쉬운 사용 → 읽기 및 말하기 → 음성 → 한국어</b>에서 '향상된' 목소리(예: Yuna 향상됨)를 내려받으면 훨씬 자연스러워져요. 받은 뒤 앱을 다시 열면 자동으로 골라요.</div>
       <button class="set-item" id="siriRow">🎙️ 시리·AI 비서로 듣기 <i class="switch" id="siriSwitch"></i></button>
       <div id="siriBox" hidden>
         <div class="why" style="margin-bottom:6px">앱을 열지 않아도 <b>"시리야, 모닝픽 오늘의 브리핑 읽어줘"</b>로 같은 브리핑을 들을 수 있어요. 위치는 폰의 <b>지금 위치</b>를 쓰고, 못 찾으면 앱에서 <b>마지막으로 본 위치</b>를 써요.
