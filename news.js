@@ -38,7 +38,7 @@ async function renderNews(force){
     try { N = await loadData('news', force); } catch(e){ if (!N){ el.innerHTML = '<div class="empty"><div class="e">📡</div>뉴스를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; } }
   } else if (Date.now() - (dcLoad('news')?.at || 0) > 8 * 60e3) loadData('news').then(() => renderNews()).catch(() => {});
   const age = (Date.now() - new Date(N.updated)) / 60e3;
-  $('#nwUpd').textContent = `${ago(N.updated)} 업데이트${age > 180 ? ' · 자동 업데이트 대기 중' : ''}`;
+  $('#nwUpd').textContent = `${ago(N.updated)} 업데이트 · 다음 ${nextAt([8, 12, 16])}`;
   const want = new Set(S.newsCats || CAT_ORDER);
   const brief = (N.brief && N.brief.length) ? N.brief.map(esc) : ruleNewsBrief(N);
   const top = (N.top || []).filter(x => want.has(x.c));

@@ -1,4 +1,4 @@
-const CACHE = 'outfit-v24';
+const CACHE = 'outfit-v25';
 const SHELL = ['./', './index.html', './app.js', './market.js', './news.js', './daily.js', './concepts.js', './phrases.js', './icons.js', './regions.js', './core.js', './brief.js', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './icon-maskable-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

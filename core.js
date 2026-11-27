@@ -647,7 +647,8 @@ function briefMarket(M){
   if (!M) return [];
   const lines = (M.brief && M.brief.length) ? M.brief : ruleMarketBrief(M);
   if (!lines.length) return [];
-  const out = [`이어서 증시예요. ${hmOf(M.updated)} 기준이에요`, ...lines];
+  const focus = M.focus === 'us' ? ', 밤사이 미국 증시 중심 분석' : M.focus === 'kr' ? ', 오늘 한국 증시 중심 분석' : '';
+  const out = [`이어서 증시예요. ${hmOf(M.updated)} 기준${focus}이에요`, ...lines];
   const h = M.commentary && M.commentary.headline;
   if (h) out.push(`오늘 시장을 한마디로 하면, ${h}`);
   return out;

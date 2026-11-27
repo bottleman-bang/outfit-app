@@ -29,6 +29,8 @@ const ago = iso => {
   if (m < 60 * 24) return `${Math.round(m / 60)}시간 전`;
   const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}`;
 };
+// 다음 업데이트 시각 (시간표: 뉴스 8·12·16시, 증시 7·17시 — outfit-data/build.py)
+const nextAt = hours => { const d = new Date(), h = d.getHours() + d.getMinutes() / 60, n = hours.find(x => x > h + 0.25); return n != null ? fmtHour(n) : '내일 ' + fmtHour(hours[0]); };
 const hhmm = iso => { const d = new Date(iso); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const updn = v => v > 0.004 ? 'up' : v < -0.004 ? 'dn' : 'fl';
 const krVal = v => v == null ? '–' : v >= 1e6 ? `${(v / 1e6).toFixed(2)}조` : `${fmt(v / 100, 0)}억`;          // 백만원 → 조/억
@@ -158,7 +160,7 @@ async function renderMarket(force){
     try { M = await loadData('market', force); } catch(e){ if (!M){ el.innerHTML = '<div class="empty"><div class="e">📡</div>데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; } }
   } else if (Date.now() - (dcLoad('market')?.at || 0) > 8 * 60e3) loadData('market').then(() => renderMarket()).catch(() => {});
   const age = (Date.now() - new Date(M.updated)) / 60e3;
-  $('#mkUpd').textContent = `${ago(M.updated)} 업데이트${age > 180 ? ' · 자동 업데이트 대기 중' : ''}`;
+  $('#mkUpd').textContent = `${ago(M.updated)} 업데이트${M.focus ? (M.focus === 'us' ? ' · 🇺🇸 미국 증시 중심' : ' · 🇰🇷 한국 증시 중심') : ''} · 다음 ${nextAt([7, 17])}`;
   const mac = M.macro || {}, find = (cat, id) => (mac[cat] || []).find(x => x.id === id);
   const brief = (M.brief && M.brief.length) ? M.brief : ruleMarketBrief(M);
   const regions = ['미국', '아시아', '유럽'];
